@@ -38,9 +38,11 @@ local TimerDisplay = TopBar:WaitForChild("Timer")
 
 local ProfileFrame = MainFrame:WaitForChild("Profile")
 local ProfilePlaceholder = ProfileFrame:WaitForChild("Placeholder")
+local ProfileNameItem = ProfileFrame:WaitForChild("NameItemProfile")
 local ProfileRarity = ProfileFrame:WaitForChild("Rarity")
 local ProfileRarityGradient = ProfileRarity:WaitForChild("UIGradient")
-local BuyButton = ProfileFrame:WaitForChild("Button"):FindFirstChild("Btn", true) 
+local ProfileButtonFrame = ProfileFrame:WaitForChild("Button")
+local BuyButton = ProfileButtonFrame:FindFirstChild("Btn", true) 
 
 local ProfileBg = ProfileFrame:WaitForChild("Bg")
 local ProfileBgStroke1 = ProfileBg:WaitForChild("1")
@@ -162,8 +164,11 @@ end
 
 local function UpdateProfile(visible, itemName, itemButton)
 	if not visible then
+		ProfileRarity.Visible = false
+		ProfileNameItem.Visible = false
+		ProfileButtonFrame.Visible = false
 		ProfileRarity.Text = "Nothing"
-		ProfileFrame:WaitForChild("NameItemProfile").Text = "Select an item"
+		ProfileNameItem.Text = "Select an item"
 		local get = ProfilePlaceholder:FindFirstChildOfClass("ViewportFrame")
 		if get then get:Destroy() end
 
@@ -178,11 +183,14 @@ local function UpdateProfile(visible, itemName, itemButton)
 
 	local itemStats = ITEM_STATS_MODULE[itemName]
 	if itemStats then
+		ProfileRarity.Visible = true
+		ProfileNameItem.Visible = true
+		ProfileButtonFrame.Visible = true
 		local oldButton = selectedButton
 		local destroyGradient = AddGradient({ProfileRarity}, itemStats.Rarity).Destroy
 
 		ProfileRarity.Text = itemStats.Rarity
-		ProfileFrame:WaitForChild("NameItemProfile").Text = itemName
+		ProfileNameItem.Text = itemName
 
 		local rarityColor = RARITY_COLORS[itemStats.Rarity] or Color3.fromRGB(255, 255, 255)
 
