@@ -31,13 +31,17 @@ end
 
 local GroupRewardsFrame = getOptionalNewUIChild("GroupRewardsFrame")
 local LvlUpFrame = getOptionalNewUIChild("RewardPopUp")
-local DailyRewardFrame = getOptionalNewUIChild("Daily")
+local DailyRewardFrame = getOptionalNewUIChild("DailyRewardFrame") or getOptionalNewUIChild("Daily")
 local IndexFrame = getOptionalNewUIChild("IndexFrame")
 local TraitFrame = getOptionalNewUIChild("WillPower")
 local ListFrame = getOptionalNewUIChild("List")
 local legacyDailyRewardFolder = CoreGameUI:FindFirstChild("DailyReward")
 local autoOpenDailyRewardFrame = DailyRewardFrame
 	or (legacyDailyRewardFolder and legacyDailyRewardFolder:FindFirstChild("DailyRewardFrame"))
+local DAILY_REWARD_PENDING_ATTR = "DailyRewardStartupPending"
+local DAILY_REWARD_RESOLVED_ATTR = "DailyRewardStartupResolved"
+local DAILY_REWARD_SHOWN_ATTR = "DailyRewardStartupShown"
+local DAILY_REWARD_CLOSED_BY_BUTTON_ATTR = "DailyRewardClosedByButton"
 
 if hasDedicatedSideMenu then
 	local legacyHud = CoreGameUI:FindFirstChild("HUD")
@@ -101,6 +105,38 @@ function CanClaim()
 	end
 
 	return DailyRewardModule.GetTimeUntilClaim(player) <= 0
+end
+
+local function setDailyRewardStartupState(pending, resolved, shown)
+	if pending ~= nil then
+		NewUI:SetAttribute(DAILY_REWARD_PENDING_ATTR, pending)
+	end
+
+	if resolved ~= nil then
+		NewUI:SetAttribute(DAILY_REWARD_RESOLVED_ATTR, resolved)
+	end
+
+	if shown ~= nil then
+		NewUI:SetAttribute(DAILY_REWARD_SHOWN_ATTR, shown)
+	end
+end
+
+local function initializeDailyRewardStartupState()
+	local shouldAutoOpenDailyReward = CanClaim() and autoOpenDailyRewardFrame ~= nil
+	setDailyRewardStartupState(shouldAutoOpenDailyReward, not shouldAutoOpenDailyReward, false)
+	NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, not shouldAutoOpenDailyReward)
+end
+
+initializeDailyRewardStartupState()
+
+if autoOpenDailyRewardFrame then
+	autoOpenDailyRewardFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+		if autoOpenDailyRewardFrame.Visible then
+			setDailyRewardStartupState(true, false, true)
+		elseif NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) then
+			setDailyRewardStartupState(false, true, true)
+		end
+	end)
 end
 
 local function blur(blurState: boolean, otherVisible: boolean)
@@ -181,8 +217,8 @@ local function getJunkTraderMenuTarget()
 end
 
 local function getDailyRewardTarget()
-	local newDailyReward = NewUI:FindFirstChild("Daily")
-	return newDailyReward and "Daily" or "DailyRewardFrame"
+	local newDailyReward = NewUI:FindFirstChild("DailyRewardFrame") or NewUI:FindFirstChild("Daily")
+	return newDailyReward and newDailyReward.Name or "DailyRewardFrame"
 end
 
 local closeAllAliases = {
@@ -256,6 +292,13 @@ local function normalizeCloseAllTarget(name)
 	end
 
 	return closeAllAliases[normalizedName] or name
+end
+
+local function isDailyRewardMenu(name)
+	local normalizedName = normalizeName(name)
+	return normalizedName == "daily"
+		or normalizedName == "dailyreward"
+		or normalizedName == "dailyrewardframe"
 end
 
 local function resolveButtonTarget(button)
@@ -840,6 +883,11 @@ for _, frame in ipairs(allFramesToCheck) do
 			btn.Activated:Connect(function()
 				if _G.Occupied then return end
 
+				if isDailyRewardMenu(frame.Name) then
+					NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, true)
+					setDailyRewardStartupState(false, true, true)
+				end
+
 				if prev then
 					closeall(prev)
 				else
@@ -923,6 +971,7 @@ _G.CloseAllEnabled = true
 for _, element in openuionstart do
 	if CanClaim() then
 		isFirstAutoOpen = true
+		setDailyRewardStartupState(true, false, false)
 		closeall(element.Name)
 		isFirstAutoOpen = false
 	end

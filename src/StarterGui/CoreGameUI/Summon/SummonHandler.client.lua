@@ -1241,12 +1241,8 @@ end
 --warn('XO3')
 
 local function closeSummonMenu()
-	local chr = game.Players.LocalPlayer.Character or game.Players.LocalPlayer.CharacterAdded:Wait()
-	if chr then
-		chr:SetPrimaryPartCFrame(workspace.SummonTeleporters.TeleportOut.CFrame) 
-		_G.CloseAll()
-		UiHandler.EnableAllButtons()
-	end
+	_G.CloseAll()
+	UiHandler.EnableAllButtons()
 end
 
 SummonFrame.Banner.X_Close.Activated:Connect(closeSummonMenu)

@@ -52,8 +52,6 @@ local ArrowLeft = PrestigeCard:WaitForChild("ArrowLeft")
 local ArrowRight = PrestigeCard:WaitForChild("ArrowRight")
 local SlotsFrame = PrestigeCard:WaitForChild("Slots")
 
-local TeleportOutPS = workspace:WaitForChild("Prestige"):WaitForChild("TeleportOut")
-
 local ViewedPrestigeTier = 1
 local WasMessage = false
 local MaxPrestige = 10 
@@ -68,7 +66,6 @@ local ShopCurrencyLabel = ShopCraft:WaitForChild("Onhand"):WaitForChild("TextAmo
 
 local ShopButtonsHolder = ShopMain:WaitForChild("ItemsTab"):WaitForChild("Content")
 
-local TeleportOutShop = workspace:WaitForChild("PrestigeShop"):WaitForChild("TeleportOut")
 local Prompt = PlayerGui:WaitForChild("CoreGameUI"):WaitForChild("Prompt"):WaitForChild("Prompt")
 
 local ShopUnit = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ShopUnit")
@@ -377,9 +374,6 @@ end)
 
 if ShopX then
 	ShopX.Activated:Connect(function()
-		if Character and Character.PrimaryPart then
-			Character:PivotTo(TeleportOutShop.CFrame)
-		end
 		_G.CloseAll()
 		ShopGUI.Visible = false
 	end)
@@ -440,10 +434,6 @@ PrestigeValue:GetPropertyChangedSignal("Value"):Connect(function()
 	PrestigeReset:FireServer(Player)
 	task.wait(0.1)
 	PrestigeUI.Visible = false
-
-	if Character and Character.PrimaryPart then
-		Character:PivotTo(TeleportOutPS.CFrame)
-	end
 
 	UpdateMainUI()
 end)

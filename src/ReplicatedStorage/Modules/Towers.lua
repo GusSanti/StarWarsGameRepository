@@ -78,15 +78,19 @@ local function getAnimator(model: Model)
 	return nil
 end
 
+local function prepareFollowerPart(object: Instance)
+	if not object:IsA("BasePart") then return end
+
+	object.Anchored = false
+	object.CanCollide = false
+	object.CanTouch = false
+	object.CanQuery = false
+	object.Massless = true
+end
+
 local function prepareModelPhysics(model: Model)
 	for _, object in model:GetDescendants() do
-		if not object:IsA("BasePart") then continue end
-
-		object.Anchored = false
-		object.CanCollide = false
-		object.CanTouch = false
-		object.CanQuery = false
-		object.Massless = true
+		prepareFollowerPart(object)
 	end
 end
 
@@ -229,6 +233,10 @@ function Towers.new(towerValue, player: Player, slot: number, traitName: string,
 		JumpAnimationUntil = 0,
 		Animator = getAnimator(tower),
 	}, Towers)
+
+	self.Connections["DescendantAdded"] = tower.DescendantAdded:Connect(function(descendant)
+		prepareFollowerPart(descendant)
+	end)
 
 	TraitModule.AddVisualAura(tower, traitName)
 	self.Connections["Trait"] = towerValue:GetAttributeChangedSignal("Trait"):Connect(function()

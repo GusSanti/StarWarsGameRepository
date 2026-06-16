@@ -1,10 +1,12 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 repeat task.wait(.1) until _G.LoadingScreenComplete
 --// Services
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 --// Dependencies
 local funcs = require(ReplicatedStorage.Modules.Functions)
+local DailyRewardModule = require(ReplicatedStorage.Modules.DailyReward)
 local tutorialStartSteps = require(script.TutotrialStartSteps)
 local tutorialEndSteps = require(script.TutotrialEndSteps)
 local events = require(script.Events)
@@ -19,7 +21,10 @@ local bgText = contents.Bg_Text
 local viewport = bgText.ViewportFrame
 local label = bgText.TextLabel
 
-local player = game.Players.LocalPlayer
+local player = Players.LocalPlayer
+local NewUI = player:WaitForChild("PlayerGui"):WaitForChild("NewUI")
+local DailyRewardFrame = NewUI:FindFirstChild("DailyRewardFrame") or NewUI:WaitForChild("DailyRewardFrame", 10)
+local DAILY_REWARD_CLOSED_BY_BUTTON_ATTR = "DailyRewardClosedByButton"
 repeat task.wait(.1) until player:FindFirstChild("DataLoaded")
 
 --if player:FindFirstChild("TutorialCompleted").Value == true or player:FindFirstChild("TutorialModeCompleted").Value == true then return end
@@ -52,6 +57,29 @@ local END_POINTER_POS = {
 	[1] = UDim2.fromScale(0.066,0.62),
 	[2] = UDim2.new(0.411,0,0.669,0),
 }
+
+local function waitForDailyRewardCloseButton()
+	if DailyRewardModule.GetTimeUntilClaim(player) > 0 then
+		return
+	end
+
+	if not DailyRewardFrame then
+		return
+	end
+
+	local startupDeadline = os.clock() + 5
+	while NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == nil and os.clock() < startupDeadline do
+		task.wait(0.1)
+	end
+
+	if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+		return
+	end
+
+	while NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) ~= true do
+		NewUI:GetAttributeChangedSignal(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR):Wait()
+	end
+end
 
 --// Helper Functions
 local function animateText(step, start)
@@ -191,8 +219,7 @@ local function RunTutorial()
 	end
 end
 
-local players = game:GetService('Players')
-
-if #players.LocalPlayer.OwnedTowers:GetChildren() < 3 then
+if #Players.LocalPlayer.OwnedTowers:GetChildren() < 3 then
+	waitForDailyRewardCloseButton()
 	RunTutorial()
 end
