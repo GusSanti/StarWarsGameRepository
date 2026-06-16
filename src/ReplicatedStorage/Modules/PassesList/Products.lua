@@ -14,6 +14,14 @@ local function giveUltraVIP(Player)
 	Player.OwnGamePasses["Ultra VIP"].Value = true
 end
 
+local function markOwnedProduct(Player, productName)
+	local ownGamePasses = Player:FindFirstChild("OwnGamePasses")
+	local ownedFlag = ownGamePasses and ownGamePasses:FindFirstChild(productName)
+	if ownedFlag then
+		ownedFlag.Value = true
+	end
+end
+
 --[[
 player.LuckySpins.Value += 5
 Player.Items["Fortunate Crystal"].Value,
@@ -31,6 +39,7 @@ local Products = {
 
 	[3337720767] = function(ReceiptInfo, Player) -- Fawn
 		print('non shiny')
+		markOwnedProduct(Player, "Fawn")
 		_G.createTower(Player.OwnedTowers, 'Fawn')
 		Player.Gems.Value += 2500
 		Player.TraitPoint.Value += 15
@@ -39,6 +48,7 @@ local Products = {
 	end,
 
 	[3338418451] = function(ReceiptInfo, Player) -- Fawn(SHINY)
+		markOwnedProduct(Player, "Shiny Fawn")
 		_G.createTower(Player.OwnedTowers, 'Fawn', nil, {Shiny = true})
 		Player.Gems.Value += 5000
 		Player.TraitPoint.Value += 50
@@ -48,6 +58,7 @@ local Products = {
 	end,
 
 	[3591465962] = function(ReceiptInfo, Player) -- Anakin
+		markOwnedProduct(Player, "Anakin")
 		_G.createTower(Player.OwnedTowers, 'Anikin Armor')
 		Player.Gems.Value += 6000
 		Player.TraitPoint.Value += 60
@@ -57,6 +68,7 @@ local Products = {
 	end,
 
 	[3591465067] = function(ReceiptInfo, Player) -- Dartwader
+		markOwnedProduct(Player, "Dartwader")
 		_G.createTower(Player.OwnedTowers, 'Dart Wader')
 		Player.Gems.Value += 10000
 		Player.TraitPoint.Value += 100

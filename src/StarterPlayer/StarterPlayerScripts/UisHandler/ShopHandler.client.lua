@@ -323,6 +323,15 @@ local function registerOfferUi(offSaleLabel, buyButton)
 	end
 end
 
+local function setButtonInteractable(button, isInteractable)
+	if not button or not button:IsA("GuiButton") then
+		return
+	end
+
+	button.Active = isInteractable
+	button.AutoButtonColor = isInteractable
+end
+
 local function updateOfferTimer()
 	local remaining = math.max(0, SessionOfferDeadline - os.time())
 	local timerText = `OFFSALE IN: {formatCountdown(remaining)}`
@@ -421,12 +430,33 @@ local function SetupBundleFrame(frame, config)
 	local buyButton = getBuyButton(frame)
 	local amountLabel = getAmountLabel(frame)
 	local offSaleLabel = texts and texts:FindFirstChild("OffSale")
+	local ownedFlag = info.OneTimePurchase and LocalPlayer.OwnGamePasses:FindFirstChild(config.MarketName)
+
+	local function updateOwnedState()
+		local isOwned = ownedFlag and ownedFlag.Value == true
+		local isOfferActive = SessionOfferDeadline > os.time()
+		local canBuy = isOfferActive and not isOwned
+
+		if texts then
+			setText(texts:FindFirstChild("Remaining"), isOwned and "0/1 Remaining" or "1/1 Remaining")
+		end
+
+		if amountLabel and isOwned then
+			setText(amountLabel, "Owned")
+		end
+
+		setButtonInteractable(buyButton, canBuy)
+	end
 
 	registerOfferUi(offSaleLabel, buyButton)
 
 	if buyButton then
 		buyButton.Activated:Connect(function()
 			if SessionOfferDeadline <= os.time() then
+				return
+			end
+
+			if ownedFlag and ownedFlag.Value == true then
 				return
 			end
 
@@ -446,7 +476,15 @@ local function SetupBundleFrame(frame, config)
 		if success and result and result.PriceInRobux and amountLabel then
 			setText(amountLabel, `{ROBUX_CHAR}{UtilityFunctions.addCommas(result.PriceInRobux)}`)
 		end
+
+		updateOwnedState()
 	end)
+
+	if ownedFlag then
+		ownedFlag:GetPropertyChangedSignal("Value"):Connect(updateOwnedState)
+	end
+
+	updateOwnedState()
 end
 
 local function Animate(tag, fn)

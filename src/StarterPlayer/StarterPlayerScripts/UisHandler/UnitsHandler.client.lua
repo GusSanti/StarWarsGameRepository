@@ -47,6 +47,8 @@ _G.InventoryButtonsClickable = true
 _G.evolveTowerSelection = false
 _G.evolveTowerCancelSelection = nil
 _G.levelupTowerSelection = false
+_G.levelupTowerSelectTower = nil
+_G.levelupTowerCancelSelection = nil
 _G.junkTraderTowerSelection = false
 _G.junkTraderCanSelectTower = nil
 _G.junkTraderIsTowerSelected = nil
@@ -789,6 +791,13 @@ addButton = function(tower)
 			return
 		end
 
+		if _G.levelupTowerSelection == true then
+			if typeof(_G.levelupTowerSelectTower) == "function" then
+				_G.levelupTowerSelectTower(button, tower)
+			end
+			return
+		end
+
 		if _G.traitTowerSelection == false and _G.InventoryButtonsClickable == true and _G.evolveTowerSelection == false and _G.levelupTowerSelection == false then
 			local statsTowerRefresh = UpgradesModule[tower.Name]
 			local finalRarity = statsTowerRefresh["Rarity"] or "Rare"
@@ -1118,6 +1127,14 @@ UnitsUI:GetPropertyChangedSignal('Visible'):Connect(function()
 			_G.traitTowerSelection = false
 			_G.traitTowerSelectTower = nil
 			_G.traitTowerCancelSelection = nil
+		end
+	elseif _G.levelupTowerSelection == true then
+		if typeof(_G.levelupTowerCancelSelection) == "function" then
+			_G.levelupTowerCancelSelection()
+		else
+			_G.levelupTowerSelection = false
+			_G.levelupTowerSelectTower = nil
+			_G.levelupTowerCancelSelection = nil
 		end
 	elseif isJunkTraderSelectionActive() and typeof(_G.junkTraderCancelSelection) == "function" then
 		_G.junkTraderCancelSelection()
