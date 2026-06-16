@@ -45,6 +45,7 @@ _G.traitTowerSelectTower = nil
 _G.traitTowerCancelSelection = nil
 _G.InventoryButtonsClickable = true
 _G.evolveTowerSelection = false
+_G.evolveTowerCancelSelection = nil
 _G.levelupTowerSelection = false
 _G.junkTraderTowerSelection = false
 _G.junkTraderCanSelectTower = nil
@@ -113,6 +114,9 @@ local inGui = false
 local oldEquippedTowers = {}
 local latestSelectedButton
 local refreshInventoryButtonVisibility
+local addButton
+local removeButton
+local syncInventoryButtons
 
 local currentFilter = "None"
 local selectState = "None"
@@ -421,6 +425,28 @@ local function getDictionaryLength(dictionary)
 	return count
 end
 
+local function getInventoryButtonCounts()
+	local totalUnits = 0
+	local visibleUnits = 0
+
+	for _, towerButton in pairs(ContentGrid:GetChildren()) do
+		if not towerButton:IsA("GuiObject") then
+			continue
+		end
+
+		local towerValue = towerButton:FindFirstChild("TowerValue")
+		local tower = towerValue and towerValue.Value
+		if tower and tower.Parent == player.OwnedTowers then
+			totalUnits += 1
+			if towerButton.Visible then
+				visibleUnits += 1
+			end
+		end
+	end
+
+	return totalUnits, visibleUnits
+end
+
 local function compare(arr1, arr2)
 	local arr1Length,arr2Length = getDictionaryLength(arr1),getDictionaryLength(arr2)
 	local higherIndex = math.max(arr1Length,arr2Length)
@@ -515,6 +541,8 @@ local function changeSelectState(stateChange)
 end
 
 local function updateInventory()
+	syncInventoryButtons()
+
 	for _, v in pairs(ContentGrid:GetChildren()) do
 		if v:IsA("GuiObject") and v:FindFirstChild("TowerValue") and v:GetAttribute("Select") == true then
 			v:SetAttribute("Select", false)
@@ -563,8 +591,6 @@ local function updateInventory()
 			info.TowerButton.LayoutOrder = info.LayoutOrder + #layoutorders
 		end
 	end
-
-	UnitsQuantityText.Text = "Units: "..tostring(#player.OwnedTowers:GetChildren()).."/"..player.MaxUnits.Value
 
 	for i = 1, 6 do
 		local tower = equippedTowers[`{i}`]
@@ -619,8 +645,38 @@ local function canUseTowerInCurrentSelectionMode(tower)
 	return true
 end
 
+syncInventoryButtons = function()
+	local existingButtons = {}
+
+	for _, button in pairs(ContentGrid:GetChildren()) do
+		if not button:IsA("GuiObject") then
+			continue
+		end
+
+		local towerValue = button:FindFirstChild("TowerValue")
+		if not towerValue then
+			continue
+		end
+
+		local tower = towerValue.Value
+		if not tower or tower.Parent ~= player.OwnedTowers then
+			button:Destroy()
+		elseif existingButtons[tower] then
+			button:Destroy()
+		else
+			existingButtons[tower] = button
+		end
+	end
+
+	for _, tower in pairs(player.OwnedTowers:GetChildren()) do
+		if not existingButtons[tower] then
+			addButton(tower)
+		end
+	end
+end
+
 refreshInventoryButtonVisibility = function()
-	local newString = string.lower(SearchBox.Text)
+	local newString = string.lower((SearchBox.Text or ""):gsub("^%s+", ""):gsub("%s+$", ""))
 	local unitsFound = 0
 	local shouldShowDefaultCount = newString == "" and not _G.evolveTowerSelection and not isJunkTraderSelectionActive()
 
@@ -628,7 +684,7 @@ refreshInventoryButtonVisibility = function()
 		if not towerButton:IsA("GuiObject") then continue end
 
 		local tVal = towerButton:FindFirstChild("TowerValue")
-		if not (tVal and tVal.Value) then continue end
+		if not (tVal and tVal.Value and tVal.Value.Parent == player.OwnedTowers) then continue end
 
 		local isVisible = canUseTowerInCurrentSelectionMode(tVal.Value)
 		updateJunkTraderSelectionIndicator(towerButton, tVal.Value)
@@ -641,12 +697,13 @@ refreshInventoryButtonVisibility = function()
 		if isVisible then unitsFound += 1 end
 	end
 
+	local totalUnits = getInventoryButtonCounts()
 	UnitsQuantityText.Text = shouldShowDefaultCount
-		and ("Units: " .. tostring(#player.OwnedTowers:GetChildren()) .. "/" .. player.MaxUnits.Value)
+		and ("Units: " .. tostring(totalUnits) .. "/" .. player.MaxUnits.Value)
 		or ("Units: " .. tostring(unitsFound) .. "/" .. player.MaxUnits.Value)
 end
 
-local function addButton(tower)
+addButton = function(tower)
 	for _, button in pairs(ContentGrid:GetChildren()) do
 		if button:IsA("GuiObject") and button:FindFirstChild("TowerValue") and button.TowerValue.Value == tower then return end
 	end
@@ -894,7 +951,7 @@ local function addButton(tower)
 	refreshInventoryButtonVisibility()
 end
 
-local function removeButton(tower)
+removeButton = function(tower)
 	for _, v in pairs(ContentGrid:GetChildren()) do
 		local tVal = v:FindFirstChild("TowerValue")
 		if tVal and tVal.Value == tower then
@@ -925,6 +982,7 @@ UserInputService.InputBegan:Connect(function(input)
 end)
 
 player.OwnedTowers.ChildRemoved:Connect(function(child)
+	removeButton(child)
 	updateInventory()
 end)
 
@@ -991,9 +1049,12 @@ end
 
 player.PlayerLevel.Changed:Connect(updateInventory)
 player:WaitForChild("MaxUnits").Changed:Connect(function()
-	UnitsQuantityText.Text = "Units: "..tostring(#player.OwnedTowers:GetChildren()).."/"..player.MaxUnits.Value
+	refreshInventoryButtonVisibility()
 end)
 player.PlayerExp.Changed:Connect(updatePlayerLevelBar)
+
+_G.refreshUnitsInventory = updateInventory
+_G.refreshUnitsInventoryVisibility = refreshInventoryButtonVisibility
 
 task.spawn(function()
 	preloadVisualAssets()
@@ -1023,9 +1084,10 @@ player:WaitForChild("OwnedTowers").ChildAdded:Connect(function(child)
 	end)
 
 	addButton(child)
-	child:GetPropertyChangedSignal('Name'):Connect(function(old)
-		removeButton(old)
+	child:GetPropertyChangedSignal('Name'):Connect(function()
+		removeButton(child)
 		addButton(child)
+		updateInventory()
 	end)
 	child.AttributeChanged:Connect(updateInventory)
 	child.Changed:Connect(updateInventory)
@@ -1042,6 +1104,13 @@ UnitsUI:GetPropertyChangedSignal('Visible'):Connect(function()
 
 	if UnitsUI.Visible then
 		updateInventory()
+	elseif _G.evolveTowerSelection == true then
+		if typeof(_G.evolveTowerCancelSelection) == "function" then
+			_G.evolveTowerCancelSelection()
+		else
+			_G.evolveTowerSelection = false
+			_G.evolveTowerCancelSelection = nil
+		end
 	elseif _G.traitTowerSelection == true then
 		if typeof(_G.traitTowerCancelSelection) == "function" then
 			_G.traitTowerCancelSelection()
