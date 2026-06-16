@@ -1909,36 +1909,49 @@ Functions.Craft.OnServerInvoke = function(player, itemName)
 	warn(player.Name, itemName)
 	local itemStats = ItemStatsModule[itemName]
 	local playerItems = player.Items
-	if not itemStats then return false end
+	local craftingRequirement = itemStats and itemStats.CraftingRequirement
+	local playerCoins = player:FindFirstChild("Coins")
+	if not itemStats or not craftingRequirement then return false end
 
 	warn("Item Stats XO2")
 
 
 	local hasAllRequireItems = true
-	for requireItemName, amount in itemStats.CraftingRequirement do
+	for requireItemName, amount in craftingRequirement do
 		if requireItemName == "Coins" then 
-			if player.Coins.Value < amount then
+			if not playerCoins or playerCoins.Value < amount then
 				warn("Not Enough Coins")
 				hasAllRequireItems = false 
 				break
 
 			end
-		elseif playerItems[requireItemName].Value < amount then 
-			hasAllRequireItems = false 
-			break 
+		else
+			local requirementValue = playerItems:FindFirstChild(requireItemName)
+			if not requirementValue or requirementValue.Value < amount then
+				hasAllRequireItems = false 
+				break 
+			end
 		end
 
 	end
 
 	if not hasAllRequireItems then return false end
-	for requireItemName, amount in itemStats.CraftingRequirement do
+	for requireItemName, amount in craftingRequirement do
 		if requireItemName == "Coins" then
-			player.Coins.Value -= amount
+			playerCoins.Value -= amount
 		else
-			playerItems[requireItemName].Value -= amount
+			local requirementValue = playerItems:FindFirstChild(requireItemName)
+			if not requirementValue then
+				return false
+			end
+			requirementValue.Value -= amount
 		end
 	end
-	playerItems[itemName].Value += 1
+	local craftedItemValue = playerItems:FindFirstChild(itemName)
+	if not craftedItemValue then
+		return false
+	end
+	craftedItemValue.Value += 1
 
 	return true
 
