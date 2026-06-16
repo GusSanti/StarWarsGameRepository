@@ -111,7 +111,11 @@ return {
 		["3x Speed"] = false,
 		
 		["Starter Bundle"] = false,
-		["Supreme Bundle"] = false
+		["Supreme Bundle"] = false,
+		["Fawn"] = false,
+		["Shiny Fawn"] = false,
+		["Anakin"] = false,
+		["Dartwader"] = false
 	},
 	DailyRewards = {
 		LastClaimTime = 0,

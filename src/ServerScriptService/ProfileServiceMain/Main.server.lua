@@ -1147,9 +1147,23 @@ local function locate(table, value)
 end
 
 ReplicatedStorage.Events.UpdateTowerLevelEvent.OnServerEvent:Connect(function(player,towerValue,itemsUseList)
+	if typeof(towerValue) ~= "Instance" or towerValue.Parent ~= player:FindFirstChild("OwnedTowers") then
+		warn("UpdateTowerLevelEvent rejected invalid tower for player:", player)
+		return
+	end
+
+	if typeof(itemsUseList) ~= "table" then
+		warn("UpdateTowerLevelEvent rejected invalid itemsUseList for player:", player)
+		return
+	end
 
 	local maxLevel, maxExp = ExpModule.getTowerMaxStats()
-	warn(itemsUseList)
+	if towerValue:GetAttribute("Level") >= maxLevel then
+		Events.Client.Message:FireClient(player, "Unit is already max level!", Color3.fromRGB(255, 0, 0), nil, "Error")
+		return
+	end
+
+	local fedAnyItem = false
 	for itemName, quantity in pairs(itemsUseList) do
 		if quantity <= 0 then
 			warn("Skipped item with non-positive quantity:", itemName, quantity)
@@ -1172,22 +1186,18 @@ ReplicatedStorage.Events.UpdateTowerLevelEvent.OnServerEvent:Connect(function(pl
 			warn("Item not valid for XP feed:", itemName)
 			continue
 		end
+		fedAnyItem = true
 		itemValue.Value -= quantity
 		local baseExp = itemStats.XP_amount * quantity
-		warn(itemStats.XP_amount)
 		local newTotalExp = baseExp + towerValue:GetAttribute("Exp")
-		warn(newTotalExp)
 		local towerTrait = towerValue:GetAttribute("Trait")
 		if towerTrait ~= "" then
 			local traitData = TraitsModule.Traits[towerTrait]
-			print(traitData)
 			if traitData and traitData.Exp then
-				print("Bous")
 				local bonusExp = newTotalExp * (traitData.Exp / 100)
 				newTotalExp += bonusExp
 			end
 		end
-		warn(newTotalExp)
 
 		local newLevel, newExp = ExpModule.towerLevelCalculation(
 			player,
@@ -1199,8 +1209,12 @@ ReplicatedStorage.Events.UpdateTowerLevelEvent.OnServerEvent:Connect(function(pl
 
 		towerValue:SetAttribute("Level", math.clamp(newLevel, 1, maxLevel))
 		towerValue:SetAttribute("Exp", math.clamp(newExp, 0, maxExp))
+	end
 
-		warn(string.format("Fed %d of %s. New Level: %d, New Exp: %d", quantity, itemName, newLevel, newExp))
+	if fedAnyItem then
+		Events.Client.Message:FireClient(player, "Successfully fed unit!", Color3.fromRGB(80, 255, 120))
+	else
+		Events.Client.Message:FireClient(player, "Could not feed selected unit.", Color3.fromRGB(255, 0, 0), nil, "Error")
 	end
 
 

@@ -364,26 +364,26 @@ local module = {
 		Id = 3337720767,
 		GiftId = 3340619387,
 		IsGamePass = false,
-		OneTimePurchase = false
+		OneTimePurchase = true
 	},
 
 	['Shiny Fawn'] = {
 		Id = 3338418451,
 		GiftId = 3340619234,
 		IsGamePass = false,
-		OneTimePurchase = false
+		OneTimePurchase = true
 	},
 
 	['Anakin'] = {
 		Id = 3591465962,
 		IsGamePass = false,
-		OneTimePurchase = false
+		OneTimePurchase = true
 	},
 
 	['Dartwader'] = {
 		Id = 3591465067,
 		IsGamePass = false,
-		OneTimePurchase = false
+		OneTimePurchase = true
 	}
 
 }

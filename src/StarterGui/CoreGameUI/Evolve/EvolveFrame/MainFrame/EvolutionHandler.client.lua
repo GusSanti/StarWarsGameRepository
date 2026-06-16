@@ -55,6 +55,25 @@ local function debugEvolve(...)
 	--	warn("[EvolveDebug]", ...)
 end
 
+local function refreshUnitsInventory()
+	if typeof(_G.refreshUnitsInventory) == "function" then
+		_G.refreshUnitsInventory()
+	elseif typeof(_G.refreshUnitsInventoryVisibility) == "function" then
+		_G.refreshUnitsInventoryVisibility()
+	end
+end
+
+local function clearEvolveSelection(restoreGui)
+	_G.evolveTowerSelection = false
+
+	if restoreGui then
+		script.Parent.Visible = true
+		gui.Visible = true
+	end
+
+	refreshUnitsInventory()
+end
+
 local function update()
 	debugEvolve(
 		"update_called",
@@ -237,27 +256,8 @@ local function onEvolveZoneExited(source)
 	_G.CloseAll()
 	_G.CanSummon = true
 	selectedUnit.Value = nil
-	_G.evolveTowerSelection = false
+	clearEvolveSelection(false)
 	Inventory.Visible = false
-
-	local units = {}
-
-	for i,v in Scroll:GetChildren() do
-		table.insert(units, v)
-	end
-
-	for i,v in SecondInventory:GetChildren() do
-		table.insert(units, v)
-	end
-
-	for _, v in pairs(units) do
-		if v:IsA("GuiObject") and v:FindFirstChild("TowerValue") then
-			local towerVal = v.TowerValue.Value
-			if towerVal and typeof(towerVal) == "Instance" then
-				v.Visible = true
-			end
-		end
-	end
 
 	debugEvolve(
 		"zone_exited_after_reset",
@@ -275,7 +275,13 @@ if _G.evolveTowerSelection == nil then
 end
 
 _G.evolveTowerSelectTower = function(tower)
+	_G.evolveTowerSelection = false
 	selectedUnit.Value = tower
+	refreshUnitsInventory()
+end
+
+_G.evolveTowerCancelSelection = function()
+	clearEvolveSelection(true)
 end
 
 if not evolutionBox then
@@ -393,6 +399,7 @@ MainFrame.SelectUnit.Activated:Connect(function()
 	if _G.evolveTowerSelection == false then
 		warn("Opening xo2")
 		script.Parent.Visible = false
+		_G.evolveTowerSelection = true
 
 		_G.CloseAll("Units")
 
@@ -403,33 +410,7 @@ MainFrame.SelectUnit.Activated:Connect(function()
 			Inventory.Visible = true
 		end
 
-		_G.evolveTowerSelection = true
-
-		local units = {}
-
-		for i,v in Scroll:GetChildren() do
-			table.insert(units, v)
-		end
-
-		for i,v in SecondInventory:GetChildren() do
-			table.insert(units, v)
-		end
-
-		for _, v in pairs(units) do
-			if v:IsA("GuiObject") and v:FindFirstChild("TowerValue") then
-				local towerVal = v.TowerValue.Value
-				if towerVal and typeof(towerVal) == "Instance" then
-					local unitName = towerVal.Name
-					local config = Upgrades[unitName]
-					if config then
-						local hasEvolve = config["Evolve"] ~= nil
-						v.Visible = hasEvolve
-					else
-						v.Visible = false
-					end
-				end
-			end
-		end
+		refreshUnitsInventory()
 
 		warn(selectedUnit.Value)
 	end

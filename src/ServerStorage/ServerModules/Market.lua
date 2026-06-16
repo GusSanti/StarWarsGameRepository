@@ -31,6 +31,28 @@ end)
 
 local module = {}
 
+local function getOwnedProductFlag(player, productName)
+	local ownGamePasses = player and player:FindFirstChild("OwnGamePasses")
+	if not ownGamePasses then
+		return nil
+	end
+
+	return ownGamePasses:FindFirstChild(productName)
+end
+
+local function playerOwnsProduct(player, productName, productInfo)
+	if not productInfo or not player then
+		return false
+	end
+
+	local ownedFlag = getOwnedProductFlag(player, productName)
+	if not ownedFlag or ownedFlag.Value ~= true then
+		return false
+	end
+
+	return productInfo.IsGamePass == true or productInfo.OneTimePurchase == true
+end
+
 function module.ProcessReceipt(ReceiptInfo)
 	warn('devproduct purchased')
 	warn(ReceiptInfo)
@@ -126,6 +148,11 @@ function module.ProcessReceipt(ReceiptInfo)
 		
 		local functionSuccess, functionResult 
 		local targetPlayer = IsGift and GiftPlayer or Player
+
+		if ProductInfo.OneTimePurchase and playerOwnsProduct(targetPlayer, ProductName, ProductInfo) then
+			warn("One-time product receipt received for already-owned product:", ProductName, "Player:", targetPlayer.Name)
+			return true
+		end
 
 		if IsGamePass then
 			functionSuccess, functionResult = pcall(RunFunction, targetPlayer)
@@ -232,7 +259,7 @@ function module.Gift(FromPlayer, ToPlayer, ProductId)
 		return 
 	end
 
-	if (ToPlayer.OwnGamePasses:FindFirstChild(ProductName) and ToPlayer.OwnGamePasses[ProductName].Value) and (ProductInfo.IsGamePass or ProductInfo.OneTimePurchase) then
+	if playerOwnsProduct(ToPlayer, ProductName, ProductInfo) then
 		warn("Recipient already owns this item")
 		return 
 	end
@@ -258,8 +285,9 @@ function module.Buy(Player, Id)
 		return 
 	end
 
-	if Info.IsGamePass and Player.OwnGamePasses[Name] and Player.OwnGamePasses[Name].Value == true then
-		warn("User already owns this gamepass")
+	if playerOwnsProduct(Player, Name, Info) then
+		warn("User already owns this product")
+		Message:FireClient(Player, "You already own this product.", Color3.fromRGB(255, 80, 80), nil, "Error")
 		return
 	end
 

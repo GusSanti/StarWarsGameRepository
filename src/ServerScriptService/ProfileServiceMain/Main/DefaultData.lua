@@ -140,6 +140,10 @@ return {
 
 		["Starter Bundle"] = false,
 		["Supreme Bundle"] = false,
+		["Fawn"] = false,
+		["Shiny Fawn"] = false,
+		["Anakin"] = false,
+		["Dartwader"] = false,
 
 		['x2 Luck'] = false,
 		['x2 Raid Luck'] = false,
