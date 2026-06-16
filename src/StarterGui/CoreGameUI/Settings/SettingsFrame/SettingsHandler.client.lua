@@ -1,16 +1,30 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
-
 local Players = game:GetService('Players')
 local Player = Players.LocalPlayer
 
 repeat task.wait() until Player:FindFirstChild('DataLoaded')
 
-local sinans_modules = ReplicatedStorage:WaitForChild("sinans_modules")
+local function ensureSoundGroup(name)
+	local soundGroup = SoundService:FindFirstChild(name)
+	if soundGroup and soundGroup:IsA("SoundGroup") then
+		return soundGroup
+	end
 
-local UI = SoundService:WaitForChild("UI")
-local Game_sound = SoundService:WaitForChild("Game")
-local Music = SoundService:WaitForChild("Music")
+	if soundGroup then
+		soundGroup:Destroy()
+	end
+
+	soundGroup = Instance.new("SoundGroup")
+	soundGroup.Name = name
+	soundGroup.Parent = SoundService
+
+	return soundGroup
+end
+
+local UI = ensureSoundGroup("UI")
+local GameSound = ensureSoundGroup("Game")
+local Music = ensureSoundGroup("Music")
 local updateSettingEvent = game.ReplicatedStorage:WaitForChild("Events"):WaitForChild("UpdateSetting")
 
 local contents = script.Parent.Frame.Settings.Contents
@@ -28,6 +42,73 @@ local Auto_3x_Speed= contents.Auto_3x_Speed
 
 local toggleoffposition = UDim2.fromScale(0.09, 0.5)
 local toggleonposition = UDim2.fromScale(0.6, 0.5)
+local sliderSyncLocks = {}
+local lastPersistedValues = {}
+
+local sliderConfigs = {
+	MusicVolume = {
+		SoundGroup = Music,
+		Gui = musicvolume,
+	},
+	GameVolume = {
+		SoundGroup = GameSound,
+		Gui = gamevolume,
+	},
+	UIVolume = {
+		SoundGroup = UI,
+		Gui = uivolume,
+	},
+}
+
+local function clampVolumeValue(value)
+	return math.clamp(tonumber(value) or 0, 0, 1)
+end
+
+local function getSliderRangeScale(sliderGui)
+	local knob = sliderGui.bettercircle
+	return math.max(1 - knob.Size.X.Scale, 0.0001)
+end
+
+local function getSliderLeftScale(sliderGui)
+	local knob = sliderGui.bettercircle
+	return knob.Position.X.Scale - (knob.Size.X.Scale * knob.AnchorPoint.X)
+end
+
+local function getSliderValue(sliderGui)
+	return clampVolumeValue(getSliderLeftScale(sliderGui) / getSliderRangeScale(sliderGui))
+end
+
+local function updateSliderVisuals(sliderGui, value)
+	local knob = sliderGui.bettercircle
+	local clampedValue = clampVolumeValue(value)
+	local leftScale = clampedValue * getSliderRangeScale(sliderGui)
+	local knobPositionScale = leftScale + (knob.Size.X.Scale * knob.AnchorPoint.X)
+	local fillScale = math.clamp(leftScale + (knob.Size.X.Scale * 0.5), 0, 1)
+
+	knob.Position = UDim2.new(knobPositionScale, 0, knob.Position.Y.Scale, knob.Position.Y.Offset)
+	sliderGui.Bar.Size = UDim2.fromScale(fillScale, 1)
+	sliderGui.Parent.Parent.Parent.Contents.Percentage.Text = string.format("%d%%", math.round(clampedValue * 100))
+
+	return clampedValue
+end
+
+local function applySliderSetting(settingName, value, shouldPersist)
+	local sliderConfig = sliderConfigs[settingName]
+	if not sliderConfig then
+		return
+	end
+
+	local clampedValue = clampVolumeValue(value)
+	sliderSyncLocks[settingName] = true
+	updateSliderVisuals(sliderConfig.Gui, clampedValue)
+	sliderConfig.SoundGroup.Volume = clampedValue
+	sliderSyncLocks[settingName] = false
+
+	if shouldPersist and lastPersistedValues[settingName] ~= clampedValue then
+		lastPersistedValues[settingName] = clampedValue
+		updateSettingEvent:FireServer(settingName, clampedValue)
+	end
+end
 
 function toggleon(gui)
 	gui.Contents.Toggle.Toggle.Circle.Position = toggleonposition
@@ -51,56 +132,30 @@ function toggle(gui)
 	end
 end
 
-function getpercentage(gui)
-	local percentage = gui.Position.X.Scale/0.936
-	return percentage
+for settingName, sliderConfig in sliderConfigs do
+	local settingValue = Player.Settings:WaitForChild(settingName)
+
+	local function syncSliderFromSetting()
+		local clampedValue = clampVolumeValue(settingValue.Value)
+		applySliderSetting(settingName, clampedValue, false)
+		lastPersistedValues[settingName] = clampedValue
+
+		if math.abs(settingValue.Value - clampedValue) > 0.0001 then
+			updateSettingEvent:FireServer(settingName, clampedValue)
+		end
+	end
+
+	sliderConfig.Gui.bettercircle:GetPropertyChangedSignal("Position"):Connect(function()
+		if sliderSyncLocks[settingName] then
+			return
+		end
+
+		applySliderSetting(settingName, getSliderValue(sliderConfig.Gui), true)
+	end)
+
+	settingValue:GetPropertyChangedSignal("Value"):Connect(syncSliderFromSetting)
+	syncSliderFromSetting()
 end
-
-musicvolume.bettercircle:GetPropertyChangedSignal("Position"):Connect(function()
-	local percentage = getpercentage(musicvolume.bettercircle)
-	
-	print('Percentage:')
-	print(percentage)
-	
-	Music.Volume = percentage
-	
-	musicvolume.Parent.Parent.Parent.Contents.Percentage.Text = (math.round(percentage * 100)).."%"
-	musicvolume.Bar.Size = UDim2.fromScale(musicvolume.bettercircle.Position.X.Scale + 0.03, 1)
-	
-	updateSettingEvent:FireServer("MusicVolume", percentage)
-end)
-
--- set volume slider default
-
-local saved = Player.Settings.MusicVolume.Value
-
-if saved > 1 then
-	saved = .5
-end
-
-musicvolume.Parent.Parent.Parent.Contents.Percentage.Text = (math.round(saved * 100)).."%"
-musicvolume.bettercircle.Position = UDim2.fromScale(saved, 0)
-musicvolume.Bar.Size = UDim2.fromScale(musicvolume.bettercircle.Position.X.Scale + 0.03, 1)
-
-local percentage = getpercentage(musicvolume.bettercircle)
-Music.Volume = percentage
-
-uivolume.bettercircle:GetPropertyChangedSignal("Position"):Connect(function()
-	local percentage = getpercentage(uivolume.bettercircle)
-	UI.Volume = percentage
-	
-	uivolume.Parent.Parent.Parent.Contents.Percentage.Text = (math.round(percentage * 100)).."%"
-	uivolume.Bar.Size = UDim2.fromScale(uivolume.bettercircle.Position.X.Scale + 0.03, 1)
-end)
-gamevolume.bettercircle:GetPropertyChangedSignal("Position"):Connect(function()
-	local percentage = getpercentage(gamevolume.bettercircle)
-	Game_sound.Volume = percentage
-	
-	gamevolume.Parent.Parent.Parent.Contents.Percentage.Text = (math.round(percentage * 100)).."%"
-	gamevolume.Bar.Size = UDim2.fromScale(gamevolume.bettercircle.Position.X.Scale + 0.03, 1)
-end)
-
-
 
 local btnTable = {
 	["VFX"] = Disable_VFX,

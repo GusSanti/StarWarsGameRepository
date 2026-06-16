@@ -21,6 +21,19 @@ local defaults = {
 }
 
 ------------------//FUNCTIONS
+local function getUISoundGroup()
+	local soundGroup = SoundService:FindFirstChild("UI")
+	if soundGroup and soundGroup:IsA("SoundGroup") then
+		return soundGroup
+	end
+
+	soundGroup = Instance.new("SoundGroup")
+	soundGroup.Name = "UI"
+	soundGroup.Parent = SoundService
+
+	return soundGroup
+end
+
 local function get(id)
 	if id == "" then return nil end
 	local s = cache[id]
@@ -29,6 +42,7 @@ local function get(id)
 	s.SoundId = id
 	s.Name = "HudSFX"
 	s.Parent = SoundService
+	s.SoundGroup = getUISoundGroup()
 	cache[id] = s
 	return s
 end
@@ -47,6 +61,7 @@ function SFX.play_for(inst, key)
 	if not s then return end
 	s.Volume = inst:GetAttribute("sfx_volume") or defaults.sfx_volume
 	s.PlaybackSpeed = inst:GetAttribute("sfx_speed") or defaults.sfx_speed
+	s.SoundGroup = getUISoundGroup()
 	SoundService:PlayLocalSound(s)
 end
 

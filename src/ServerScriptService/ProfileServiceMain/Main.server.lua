@@ -565,6 +565,35 @@ end
 
 local groupID = 35339513
 
+local SOUND_VOLUME_SETTINGS = {
+	MusicVolume = true,
+	GameVolume = true,
+	UIVolume = true,
+}
+
+local BOOLEAN_SETTINGS = {
+	SummonSkip = true,
+	DamageIndicator = true,
+	VFX = true,
+	AutoSkip = true,
+	ReduceMotion = true,
+	Auto3x = true,
+}
+
+local function sanitizePlayerSettings(player)
+	local settingsFolder = player:FindFirstChild("Settings")
+	if not settingsFolder then
+		return
+	end
+
+	for settingName in SOUND_VOLUME_SETTINGS do
+		local setting = settingsFolder:FindFirstChild(settingName)
+		if setting and setting:IsA("NumberValue") then
+			setting.Value = math.clamp(setting.Value, 0, 1)
+		end
+	end
+end
+
 function Get(id)
 	return 	GameProfileStore:LoadProfileAsync(
 		id.."PlayerData",
@@ -799,6 +828,7 @@ game.Players.PlayerAdded:Connect(function(player)
 			end
 
 			DeepLoadDataToInstances(statsData, player)
+			sanitizePlayerSettings(player)
 
 			--warn('DEEP LOADING!')
 
@@ -1038,7 +1068,24 @@ ReplicatedStorage.Events.EquipEvent.OnServerEvent:Connect(function(Player, ...)
 end)
 
 ReplicatedStorage.Events.UpdateSetting.OnServerEvent:Connect(function(player, changeSetting, newValue)
-	player.Settings[changeSetting].Value = newValue
+	local settingsFolder = player:FindFirstChild("Settings")
+	if not settingsFolder then
+		return
+	end
+
+	local setting = settingsFolder:FindFirstChild(changeSetting)
+	if not setting then
+		return
+	end
+
+	if SOUND_VOLUME_SETTINGS[changeSetting] and setting:IsA("NumberValue") then
+		setting.Value = math.clamp(tonumber(newValue) or 0, 0, 1)
+		return
+	end
+
+	if BOOLEAN_SETTINGS[changeSetting] and setting:IsA("BoolValue") then
+		setting.Value = newValue == true
+	end
 end)
 
 GroupRewards.OnServerEvent:Connect(function(player)

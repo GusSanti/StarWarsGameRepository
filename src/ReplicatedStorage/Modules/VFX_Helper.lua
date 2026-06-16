@@ -3,6 +3,20 @@ local RunService = game:GetService("RunService")
 local rs = game:GetService("ReplicatedStorage")
 local TS = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local SoundService = game:GetService("SoundService")
+
+local function getGameSoundGroup()
+	local soundGroup = SoundService:FindFirstChild("Game")
+	if soundGroup and soundGroup:IsA("SoundGroup") then
+		return soundGroup
+	end
+
+	soundGroup = Instance.new("SoundGroup")
+	soundGroup.Name = "Game"
+	soundGroup.Parent = SoundService
+
+	return soundGroup
+end
 
 module.HaveEquipUnits = function(player)
 	local folder = player:FindFirstChild("OwnedTowers")
@@ -50,6 +64,7 @@ end
 module.SoundPlay = function(HRP, sound:Sound, Time)
 	local clone = sound:Clone()
 	clone.Parent = HRP
+	clone.SoundGroup = getGameSoundGroup()
 	clone.PlaybackSpeed = workspace.Info.GameSpeed.Value
 	clone:Play()
 	Debris:AddItem(clone,if Time then Time else clone.TimeLength)

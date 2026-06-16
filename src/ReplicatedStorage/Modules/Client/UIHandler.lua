@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
+local SoundService = game:GetService("SoundService")
 local UIHandler = {}
 local Positions = {}
 
@@ -13,6 +14,19 @@ if game:GetService("RunService"):IsClient() then
 	local GameGUI = PlayerGUI:FindFirstChild('GameGui')
 	local CoreGameUI = PlayerGUI:WaitForChild('CoreGameUI', 5)
 	local HUD = CoreGameUI and CoreGameUI:FindFirstChild('HUD')
+
+	local function getUISoundGroup()
+		local soundGroup = SoundService:FindFirstChild("UI")
+		if soundGroup and soundGroup:IsA("SoundGroup") then
+			return soundGroup
+		end
+
+		soundGroup = Instance.new("SoundGroup")
+		soundGroup.Name = "UI"
+		soundGroup.Parent = SoundService
+
+		return soundGroup
+	end
 
 	local function getSideMenu()
 		local NewUI = PlayerGUI:FindFirstChild('NewUI')
@@ -195,6 +209,7 @@ if game:GetService("RunService"):IsClient() then
 		end
 		local Clone : Sound = Found:Clone()
 		Clone.Parent = Player.PlayerGui.GameGui
+		Clone.SoundGroup = getUISoundGroup()
 		Clone:Play()
 
 		Debris:AddItem(Clone,Clone.TimeLength)

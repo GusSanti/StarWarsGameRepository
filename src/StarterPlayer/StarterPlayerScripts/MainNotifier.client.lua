@@ -4,6 +4,7 @@ local ViewPortModule = require(ReplicatedStorage.Modules.ViewPortModule)
 local TweenService = game:GetService("TweenService")
 local ContentProvider = game:GetService("ContentProvider")
 local TextChatService = game:GetService("TextChatService")
+local SoundService = game:GetService("SoundService")
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 
@@ -38,6 +39,19 @@ local popupOpenedAt = 0
 local lastDebugGiveCommand = nil
 local lastDebugGiveAt = 0
 local automaticRewardPopupsSuppressed = false
+
+local function getUISoundGroup()
+	local soundGroup = SoundService:FindFirstChild("UI")
+	if soundGroup and soundGroup:IsA("SoundGroup") then
+		return soundGroup
+	end
+
+	soundGroup = Instance.new("SoundGroup")
+	soundGroup.Name = "UI"
+	soundGroup.Parent = SoundService
+
+	return soundGroup
+end
 local rewardPopupClosedCallback = nil
 local PRIMARY_HOLDER_PROFILE_LIMIT = 5
 local SECONDARY_HOLDER_PROFILE_LIMIT = 5
@@ -865,6 +879,7 @@ local function playRewardSound()
 	local sound = Instance.new("Sound")
 	sound.SoundId = soundID
 	sound.Parent = PlayerGui
+	sound.SoundGroup = getUISoundGroup()
 	sound:Play()
 	sound.Ended:Connect(function()
 		sound:Destroy()
