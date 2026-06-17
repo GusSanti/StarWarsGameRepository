@@ -29,6 +29,7 @@ local CraftFunction = FunctionsFolder:WaitForChild("Craft")
 
 local CraftingZonePart = Workspace:WaitForChild("CraftHitbox"):WaitForChild("NewCraftHitBox")
 local PlayerItems = Player:WaitForChild("Items")
+local PlayerCoins = Player:WaitForChild("Coins")
 
 -- VARIABLES
 local onCooldown = false
@@ -36,6 +37,15 @@ local gradients = {}
 local selectedItemName = nil
 
 -- FUNCTIONS
+local function GetRequirementAmount(requirementName)
+	if requirementName == "Coins" then
+		return PlayerCoins.Value
+	end
+
+	local playerRequireItem = PlayerItems:FindFirstChild(requirementName)
+	return playerRequireItem and playerRequireItem.Value or 0
+end
+
 local function RemoveAllGradients(container)
 	if typeof(container) == "table" then
 		for _, c in container do
@@ -122,8 +132,7 @@ end
 local function CanCraft(itemStats)
 	if not itemStats or not itemStats.CraftingRequirement then return false end
 	for reqName, amount in itemStats.CraftingRequirement do
-		local playerRequireItem = PlayerItems:FindFirstChild(reqName)
-		if not playerRequireItem or playerRequireItem.Value < amount then 
+		if GetRequirementAmount(reqName) < amount then
 			return false 
 		end
 	end
@@ -164,8 +173,7 @@ local function UpdateRequirementQuantity()
 			local totalRequire = itemStats.CraftingRequirement[reqName]
 			if not totalRequire then continue end
 
-			local matchPlayerItem = PlayerItems:FindFirstChild(reqName)
-			local playerHas = matchPlayerItem and matchPlayerItem.Value or 0
+			local playerHas = GetRequirementAmount(reqName)
 
 			reqFrame.Amount.Text = `{playerHas}/{totalRequire}`
 
@@ -253,6 +261,11 @@ local function CraftPress()
 	onCooldown = false
 end
 
+local function TrackPlayerItem(item)
+	if not item:IsA("ValueBase") then return end
+	item:GetPropertyChangedSignal("Value"):Connect(UpdateRequirementQuantity)
+end
+
 -- INIT
 
 CraftPanel.Title.Visible = false
@@ -266,8 +279,14 @@ AddAllItems()
 UpdateRequirementQuantity()
 
 for _, item in PlayerItems:GetChildren() do
-	item:GetPropertyChangedSignal("Value"):Connect(UpdateRequirementQuantity)
+	TrackPlayerItem(item)
 end
+PlayerItems.ChildAdded:Connect(function(item)
+	TrackPlayerItem(item)
+	UpdateRequirementQuantity()
+end)
+PlayerItems.ChildRemoved:Connect(UpdateRequirementQuantity)
+PlayerCoins:GetPropertyChangedSignal("Value"):Connect(UpdateRequirementQuantity)
 
 CraftPanel.Button.Btn.Activated:Connect(CraftPress)
 
