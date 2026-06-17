@@ -18,6 +18,20 @@ local RewardDays = {
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DailyRewards = {}
 local Rarity_ = nil
+local DAY_SECONDS = 24 * 60 * 60
+
+local function getCurrentTime()
+	local ok, serverTime = pcall(function()
+		return workspace:GetServerTimeNow()
+	end)
+
+	if ok and typeof(serverTime) == "number" then
+		return math.floor(serverTime)
+	end
+
+	return os.time()
+end
+
 local Functions = {
 	["Epic Unit"] = function ()
 		local Epic = {}
@@ -58,11 +72,10 @@ function DailyRewards.Claim(player)
 		repeat task.wait() until player:FindFirstChild("DataLoaded")
 	end
 
-	if (os.time() - player.DailyRewards.LastClaimTime.Value) < (3600 * 24) then
+	local currentTime = getCurrentTime()
+	if (currentTime - player.DailyRewards.LastClaimTime.Value) < DAY_SECONDS then
 		Debounce = false
 		return false
-	else
-		print("Not Enough Time")
 	end
 
 	local nextClaim = player.DailyRewards.NextClaim.Value or 1
@@ -95,7 +108,7 @@ function DailyRewards.Claim(player)
 	end
 
 	player.DailyRewards.NextClaim.Value = nextClaim + 1
-	player.DailyRewards.LastClaimTime.Value = os.time()
+	player.DailyRewards.LastClaimTime.Value = currentTime
 
 	
 	
@@ -118,9 +131,8 @@ function DailyRewards.GetTimeUntilClaim(player, day)
 		return 0
 	else
 		local dayDifference = day - nextClaimValue
-		local timeDifferenceFromLastClaim = os.time() - player.DailyRewards.LastClaimTime.Value
-		local timeUntil = (timeDifferenceFromLastClaim < (3600 * 24) and ((3600 * 24) - timeDifferenceFromLastClaim)) or 0
-		return timeUntil + (3600 * 24 * dayDifference)
+		local claimReadyAt = player.DailyRewards.LastClaimTime.Value + DAY_SECONDS + (DAY_SECONDS * dayDifference)
+		return math.max(0, claimReadyAt - getCurrentTime())
 	end
 end
 

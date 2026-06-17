@@ -35,6 +35,12 @@ local function main()
 	local lobbyTeleportOffset = Vector3.new(0, 3, 0)
 
 	local gui = script.Parent.Door.Surface.Frame.InformationFrame
+	local modeTextByValue = {
+		[1] = "Normal",
+		[2] = "Hard",
+		[3] = "Hell Fire",
+		[4] = "Infinite",
+	}
 
 	-- FUNCTIONS
 	local function getLobbyTeleportCFrame(teleportPart)
@@ -59,12 +65,12 @@ local function main()
 				end
 			end
 			gui["Story Name"].Text = world
+			local selectedModeText = modeTextByValue[script.Parent.Mode.Value] or "Normal"
+			gui["Mode Text"].Text = selectedModeText
 			if script.Parent.Mode.Value == 1 then
-				gui["Mode Text"].Text = "Normal"
 				gui["Mode Text"].HardGradient.Enabled = false
 				gui["Mode Text"].NormalGradient.Enabled = true
 			else
-				gui["Mode Text"].Text = "Hard"
 				gui["Mode Text"].NormalGradient.Enabled = false
 				gui["Mode Text"].HardGradient.Enabled = true
 			end

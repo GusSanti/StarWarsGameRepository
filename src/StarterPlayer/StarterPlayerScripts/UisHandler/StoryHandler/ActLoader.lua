@@ -13,6 +13,7 @@ local connections = {}
 local prevWorld = nil
 local prevAct = nil
 local conn = {}
+local selectedDifficultyName = "Normal"
 
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local NewUI = PlayerGui:WaitForChild("NewUI")
@@ -137,6 +138,24 @@ local function updateDifficultyVisuals(selectedDifficulty)
 	LeftSection.Queu.Text.Difficulty.TextColor3 = selectedColor
 end
 
+local function applyDifficultySelection(elevator, difficultyName)
+	local modeByDifficulty = {
+		["Normal"] = 1,
+		["Hard"] = 2,
+		["Hell Fire"] = 3,
+		["Infinite"] = 4,
+	}
+
+	selectedDifficultyName = difficultyName
+	updateDifficultyVisuals(difficultyName)
+	elevator.ElevatorServer.ChangeStory:FireServer("Mode", modeByDifficulty[difficultyName] or 1)
+end
+
+function module.resetDifficultySelection()
+	selectedDifficultyName = "Normal"
+	updateDifficultyVisuals(selectedDifficultyName)
+end
+
 function module.setActs(world)
 	if world then
 		CurrentWorldValue.Value = world
@@ -250,11 +269,15 @@ function module.selectAct(act)
 			Detail.Results.TextLabel.Text = string.format("Clear Time: <font color=\"#51E851\">%s</font>", FastestTime)
 			Detail.Results.Total_Clears.Text = string.format("Total Clears: <font color=\"#51E851\">%s</font>", tostring(TotalClear))
 
-			updateDifficultyVisuals("Normal")
+			local difficultyToApply = selectedDifficultyName
+			if difficultyToApply == "Infinite" then
+				difficultyToApply = "Normal"
+			end
+
+			applyDifficultySelection(elevator, difficultyToApply)
 
 			Detail.Dificulty.Infinite.Visible = finishedWorld(CurrentWorldValue.Value)
 
-			elevator.ElevatorServer.ChangeStory:FireServer("Mode", 1)
 			elevator.ElevatorServer.ChangeStory:FireServer("World", table.find(StoryModeStats.Worlds, CurrentWorldValue.Value))
 			elevator.ElevatorServer.ChangeStory:FireServer("Level", tonumber(string.sub(act, -1)))
 		end
@@ -288,17 +311,13 @@ function module.attachConnections()
 				if not elevator then return end
 
 				if button.Name == "Normal" then
-					updateDifficultyVisuals("Normal")
-					elevator.ElevatorServer.ChangeStory:FireServer("Mode", 1)
+					applyDifficultySelection(elevator, "Normal")
 				elseif button.Name == "Hard" then
-					updateDifficultyVisuals("Hard")
-					elevator.ElevatorServer.ChangeStory:FireServer("Mode", 2)
+					applyDifficultySelection(elevator, "Hard")
 				elseif button.Name == "Hell Fire" then
-					updateDifficultyVisuals("Hell Fire")
-					elevator.ElevatorServer.ChangeStory:FireServer("Mode", 3)
+					applyDifficultySelection(elevator, "Hell Fire")
 				elseif button.Name == "Infinite" then
-					updateDifficultyVisuals("Infinite")
-					elevator.ElevatorServer.ChangeStory:FireServer("Mode", 4)
+					applyDifficultySelection(elevator, "Infinite")
 					elevator.ElevatorServer.ChangeStory:FireServer("Level", 0)
 				end
 			end)

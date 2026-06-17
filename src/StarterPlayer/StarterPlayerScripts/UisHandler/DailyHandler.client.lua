@@ -57,6 +57,9 @@ end
 
 local function UpdateSlotVisuals(ui, displayDay)
 	local nextClaimValue = Player.DailyRewards.NextClaim.Value
+	local claimableInSeconds = DailyReward.GetTimeUntilClaim(Player, displayDay)
+	local isClaimed = displayDay < nextClaimValue
+	local isReadyToClaim = (displayDay == nextClaimValue) and claimableInSeconds <= 0
 
 	local container = ui:FindFirstChild("Container")
 	local overlay = ui:FindFirstChild("Overlay")
@@ -71,12 +74,12 @@ local function UpdateSlotVisuals(ui, displayDay)
 		dayText.Text = "Day " .. tostring(displayDay)
 	end
 
-	if displayDay < nextClaimValue then
+	if isClaimed then
 		if lock then lock.Visible = false end
 		if check then check.Visible = true end
 		if timeText then timeText.Visible = false end
 
-	elseif displayDay == nextClaimValue then
+	elseif isReadyToClaim then
 		if lock then lock.Visible = false end
 		if check then check.Visible = false end
 		if timeText then timeText.Visible = true end
@@ -88,14 +91,12 @@ local function UpdateSlotVisuals(ui, displayDay)
 	end
 
 	if timeText and timeText.Visible then
-		local climableInSeconds = DailyReward.GetTimeUntilClaim(Player, displayDay)
-
-		if climableInSeconds <= 0 then
+		if isReadyToClaim then
 			timeText.Text = "Redeem"
 		else
-			local hours = math.floor(climableInSeconds / 3600)
-			local minutes = math.floor((climableInSeconds % 3600) / 60)
-			local seconds = climableInSeconds % 60
+			local hours = math.floor(claimableInSeconds / 3600)
+			local minutes = math.floor((claimableInSeconds % 3600) / 60)
+			local seconds = claimableInSeconds % 60
 
 			timeText.Text = string.format("%02d:%02d:%02d", hours, minutes, seconds)
 		end

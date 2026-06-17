@@ -208,6 +208,7 @@ elevatorEvent.OnClientEvent:Connect(function(elevator, gamemode)
 		selectedStoryWorld = "Naboo Planet"
 		selectedStoryActIndex = 1
 		selectedStoryMode = 1
+		ActLoader.resetDifficultySelection()
 		ActLoader.setActs("Naboo Planet")
 		ActLoader.attachConnections()
 	end

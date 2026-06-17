@@ -23,6 +23,12 @@ local quickstart = false
 local timeExited = tick()
 
 local gui = script.Parent.Door.Surface.Frame.InformationFrame
+local modeTextByValue = {
+	[1] = "Normal",
+	[2] = "Hard",
+	[3] = "Hell Fire",
+	[4] = "Infinite",
+}
 
 local function update()
 	if #playersWaiting > 0 then
@@ -41,12 +47,12 @@ local function update()
 			end
 		end
 		gui["Story Name"].Text = world
+		local selectedModeText = modeTextByValue[script.Parent.Mode.Value] or "Normal"
+		gui["Mode Text"].Text = selectedModeText
 		if script.Parent.Mode.Value == 1 then
-			gui["Mode Text"].Text = "Normal"
 			gui["Mode Text"].HardGradient.Enabled = false
 			gui["Mode Text"].NormalGradient.Enabled = true
 		else
-			gui["Mode Text"].Text = "Hard"
 			gui["Mode Text"].NormalGradient.Enabled = false
 			gui["Mode Text"].HardGradient.Enabled = true
 		end
