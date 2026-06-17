@@ -32,6 +32,8 @@ local AutoSummon = false
 local suppressLegacySummonGuard = false
 local suppressNewSummonVisibilityLog = false
 local summonSummaryPending = false
+local autoSummonSessionActive = false
+local autoSummonSessionSummary = nil
 local SUMMON_DEBUG_LOGS_ENABLED = false
 
 local SecretUnit1 = "Anekan Skaivoker"
@@ -524,6 +526,120 @@ local function getSummonRewardSortScore(entry)
 	return score
 end
 
+local function getSummonSummaryTotalQuantity(summary)
+	if not summary then
+		return 0
+	end
+
+	if typeof(summary.totalQuantity) == "number" then
+		return summary.totalQuantity
+	end
+
+	local totalQuantity = 0
+	for _, entry in ipairs(summary.entries or {}) do
+		totalQuantity += entry.quantity or 0
+	end
+
+	return totalQuantity
+end
+
+local function sortSummonSummaryEntries(entries)
+	table.sort(entries, function(a, b)
+		if a.sortScore ~= b.sortScore then
+			return a.sortScore > b.sortScore
+		end
+
+		if (a.quantity or 0) ~= (b.quantity or 0) then
+			return (a.quantity or 0) > (b.quantity or 0)
+		end
+
+		return tostring(a.displayName) < tostring(b.displayName)
+	end)
+end
+
+local function createSummonSummary(entries, totalQuantity)
+	sortSummonSummaryEntries(entries)
+
+	local featured = entries[1]
+	if not featured then
+		return nil
+	end
+
+	return {
+		summaryTitle = totalQuantity > 1 and "Summon Results" or "Summon Result",
+		entries = entries,
+		featured = featured,
+		totalQuantity = totalQuantity,
+	}
+end
+
+local function cloneSummonSummaryEntry(entry)
+	local clonedEntry = {}
+
+	for key, value in pairs(entry or {}) do
+		clonedEntry[key] = value
+	end
+
+	return clonedEntry
+end
+
+local function getSummonSummaryEntryKey(entry)
+	if entry.entryKey then
+		return tostring(entry.entryKey)
+	end
+
+	return table.concat({
+		tostring(entry.entryType or "reward"),
+		tostring(entry.name or ""),
+		tostring(entry.displayName or ""),
+		tostring(entry.viewportName or ""),
+		tostring(entry.rarity or ""),
+		tostring(entry.isShiny == true),
+		tostring(entry.hasMythicTrait == true),
+		tostring(entry.wasSold == true),
+	}, ":")
+end
+
+local function mergeSummonSummaries(baseSummary, additionalSummary)
+	if not additionalSummary then
+		return baseSummary
+	end
+
+	if not baseSummary then
+		local clonedEntries = {}
+		for _, entry in ipairs(additionalSummary.entries or {}) do
+			table.insert(clonedEntries, cloneSummonSummaryEntry(entry))
+		end
+
+		return createSummonSummary(clonedEntries, getSummonSummaryTotalQuantity(additionalSummary))
+	end
+
+	local groupedEntries = {}
+	local orderedEntries = {}
+	local totalQuantity = 0
+
+	for _, summary in ipairs({baseSummary, additionalSummary}) do
+		for _, entry in ipairs(summary.entries or {}) do
+			local entryKey = getSummonSummaryEntryKey(entry)
+			local mergedEntry = groupedEntries[entryKey]
+
+			if not mergedEntry then
+				mergedEntry = cloneSummonSummaryEntry(entry)
+				mergedEntry.quantity = 0
+				groupedEntries[entryKey] = mergedEntry
+				table.insert(orderedEntries, mergedEntry)
+			end
+
+			mergedEntry.quantity += entry.quantity or 0
+			mergedEntry.sortScore = getSummonRewardSortScore(mergedEntry)
+		end
+
+		totalQuantity += getSummonSummaryTotalQuantity(summary)
+	end
+
+	return createSummonSummary(orderedEntries, totalQuantity)
+end
+
 local function buildSummonSummary(result)
 	local traitDataCache = {}
 	local groupedEntries = {}
@@ -550,6 +666,8 @@ local function buildSummonSummary(result)
 			local entry = groupedEntries[entryKey]
 			if not entry then
 				entry = {
+					entryType = "tower",
+					entryKey = entryKey,
 					name = towerName,
 					displayName = buildSummonRewardName(towerName, isShiny, traitName),
 					viewportName = towerName,
@@ -576,6 +694,8 @@ local function buildSummonSummary(result)
 			local entry = groupedEntries[entryKey]
 			if not entry then
 				entry = {
+					entryType = "item",
+					entryKey = entryKey,
 					name = itemName,
 					displayName = tostring(itemName),
 					viewportName = itemStats and itemStats.Name or itemName,
@@ -596,29 +716,7 @@ local function buildSummonSummary(result)
 		end
 	end
 
-	table.sort(orderedEntries, function(a, b)
-		if a.sortScore ~= b.sortScore then
-			return a.sortScore > b.sortScore
-		end
-
-		if (a.quantity or 0) ~= (b.quantity or 0) then
-			return (a.quantity or 0) > (b.quantity or 0)
-		end
-
-		return tostring(a.displayName) < tostring(b.displayName)
-	end)
-
-	local featured = orderedEntries[1]
-	if not featured then
-		return nil
-	end
-
-	return {
-		summaryTitle = totalQuantity > 1 and "Summon Results" or "Summon Result",
-		entries = orderedEntries,
-		featured = featured,
-		totalQuantity = totalQuantity,
-	}
+	return createSummonSummary(orderedEntries, totalQuantity)
 end
 
 local function setAutomaticRewardPopupSuppressed(isSuppressed)
@@ -631,6 +729,19 @@ local function setRewardPopupClosedCallback(callback)
 	if typeof(_G.SetRewardPopupClosedCallback) == "function" then
 		_G.SetRewardPopupClosedCallback(callback)
 	end
+end
+
+local function beginAutoSummonSession()
+	autoSummonSessionActive = true
+	autoSummonSessionSummary = nil
+end
+
+local function completeAutoSummonSession()
+	autoSummonSessionActive = false
+
+	local completedSummary = autoSummonSessionSummary
+	autoSummonSessionSummary = nil
+	return completedSummary
 end
 
 local function buildBannerPresentation(unitName, index, bannerUnits)
@@ -1269,6 +1380,12 @@ local function summon(amount, HolocronSummon, isLucky)
 		player.Character:PivotTo(workspace:WaitForChild('TutorialTeleportOut').CFrame)
 	end
 
+	if AutoSummon and not autoSummonSessionActive then
+		beginAutoSummonSession()
+	end
+
+	local isAutoSummonRoll = autoSummonSessionActive
+
 
 
 	_G.canSummon = false
@@ -1278,6 +1395,13 @@ local function summon(amount, HolocronSummon, isLucky)
 
 	local result = game.ReplicatedStorage.Functions.SummonBannerEvent:InvokeServer(amount, HolocronSummon, isLucky, currentBannerIndex)
 	if typeof(result) ~= "table" then
+		if isAutoSummonRoll then
+			AutoSummon = false
+			ExitFrame.Visible = false
+			updateNewAutoSummonVisual()
+			completeAutoSummonSession()
+		end
+
 		setAutomaticRewardPopupSuppressed(false)
 		_G.canSummon = true
 		UiHandler.PlaySound("Error")
@@ -1286,6 +1410,9 @@ local function summon(amount, HolocronSummon, isLucky)
 	end
 
 	local summonSummary = buildSummonSummary(result)
+	if isAutoSummonRoll then
+		autoSummonSessionSummary = mergeSummonSummaries(autoSummonSessionSummary, summonSummary)
+	end
 
 	local Skip = nil
 	if not isLucky then
@@ -1449,8 +1576,13 @@ local function summon(amount, HolocronSummon, isLucky)
 			end
 		end
 
+		local summaryToShow = summonSummary
+		if isAutoSummonRoll and not AutoSummon then
+			summaryToShow = completeAutoSummonSession() or summonSummary
+		end
+
 		local shouldShowSummonSummary = not AutoSummon
-			and summonSummary ~= nil
+			and summaryToShow ~= nil
 			and typeof(_G.ShowRewardPopupSummary) == "function"
 
 		_G.canSummon = true
@@ -1463,7 +1595,7 @@ local function summon(amount, HolocronSummon, isLucky)
 				summonSummaryPending = false
 				setSummonVisible(true)
 			end)
-			_G.ShowRewardPopupSummary(summonSummary)
+			_G.ShowRewardPopupSummary(summaryToShow)
 		else
 			summonSummaryPending = false
 			setRewardPopupClosedCallback(nil)
