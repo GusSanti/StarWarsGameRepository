@@ -127,6 +127,13 @@ local fuseButtonList = {}
 local blockOpen = true
 
 local viewportCache = {}
+local craftStatLabelCache = {}
+
+local STAT_NAME_ALIASES = {
+	Damage = {"Damage", "DMG", "Dmg"},
+	Cooldown = {"Cooldown", "CD", "Cd", "CoolDown"},
+	Range = {"Range", "RNG", "Radius", "AttackRange", "Distance"},
+}
 
 local buttonConnections = {
 	["DisconnectAll"] = function(self)
@@ -292,6 +299,83 @@ local function getRarityColor(rarity)
 		if typeof(borderInfo.Color) == "Color3" then return borderInfo.Color end
 	end
 	return Color3.fromRGB(200, 200, 200)
+end
+
+local function formatUnitStatValue(value)
+	if typeof(value) ~= "number" then
+		return tostring(value or "")
+	end
+
+	if math.abs(value - math.round(value)) < 0.001 then
+		return tostring(math.round(value))
+	end
+
+	return string.format("%.1f", value)
+end
+
+local function isTextComponent(instance)
+	return instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox")
+end
+
+local function getCraftStatAmountLabel(statName)
+	local cachedLabel = craftStatLabelCache[statName]
+	if cachedLabel and cachedLabel.Parent then
+		return cachedLabel
+	end
+
+	local aliases = STAT_NAME_ALIASES[statName] or {statName}
+	local statContainer
+
+	for _, alias in ipairs(aliases) do
+		statContainer = CraftValues:FindFirstChild(alias, true)
+		if statContainer then
+			break
+		end
+	end
+
+	if not statContainer then
+		for _, descendant in ipairs(CraftValues:GetDescendants()) do
+			local descendantName = string.lower(descendant.Name)
+			for _, alias in ipairs(aliases) do
+				if string.find(descendantName, string.lower(alias), 1, true) then
+					statContainer = descendant
+					break
+				end
+			end
+			if statContainer then
+				break
+			end
+		end
+	end
+
+	if not statContainer then
+		return nil
+	end
+
+	if isTextComponent(statContainer) then
+		craftStatLabelCache[statName] = statContainer
+		return statContainer
+	end
+
+	local amountLabel = statContainer:FindFirstChild("Amount", true)
+	if amountLabel and isTextComponent(amountLabel) then
+		craftStatLabelCache[statName] = amountLabel
+		return amountLabel
+	end
+
+	local fallbackLabel
+	for _, descendant in ipairs(statContainer:GetDescendants()) do
+		if isTextComponent(descendant) then
+			if descendant.Name == "Amount" then
+				craftStatLabelCache[statName] = descendant
+				return descendant
+			end
+			fallbackLabel = fallbackLabel or descendant
+		end
+	end
+
+	craftStatLabelCache[statName] = fallbackLabel
+	return fallbackLabel
 end
 
 local function clearPhysicalSlot(slot)
@@ -878,8 +962,9 @@ addButton = function(tower)
 					if stat == "Damage" then
 						finalStatVal = math.round(baseStats[stat] * levelboost) > 100 and math.round(baseStats[stat] * levelboost) or math.round((baseStats[stat] * levelboost) * 10) / 10
 					end
-					if CraftValues:FindFirstChild(stat) then
-						CraftValues[stat].Amount.Text = tostring(finalStatVal)
+					local amountLabel = getCraftStatAmountLabel(stat)
+					if amountLabel and finalStatVal ~= nil then
+						amountLabel.Text = formatUnitStatValue(finalStatVal)
 					end
 				end
 			end
