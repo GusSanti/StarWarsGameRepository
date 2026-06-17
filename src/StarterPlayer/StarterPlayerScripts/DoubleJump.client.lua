@@ -43,6 +43,84 @@ local SetVFX = function()
 	end
 end
 
+local DashCachedCharacter = nil
+local DashCachedVFX = nil
+local DashCachedVFXPart = nil
+local DashBaseC0 = nil
+
+local function resetState()
+	Character = nil
+	HumanoidRootPart = nil
+	Humanoid = nil
+	JumpUsage = 1
+	CachedVFX = nil
+	DashCachedCharacter = nil
+	DashCachedVFX = nil
+	DashCachedVFXPart = nil
+	DashBaseC0 = nil
+
+	if AnimationTrack then
+		AnimationTrack:Destroy()
+		AnimationTrack = nil
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(function()
+	resetState()
+end)
+
+local function getDashVFX(targetCharacter)
+	if not targetCharacter then
+		return nil
+	end
+
+	local rootPart = targetCharacter.PrimaryPart or targetCharacter:FindFirstChild("HumanoidRootPart")
+	if not rootPart then
+		return nil
+	end
+
+	if DashCachedCharacter == targetCharacter and DashCachedVFXPart and DashCachedVFXPart.Parent == targetCharacter and DashCachedVFX then
+		DashCachedVFXPart.Weld.Part1 = rootPart
+		return DashCachedVFX
+	end
+
+	local newVFXPart = VFXPart:Clone()
+	newVFXPart.Name = VFXPart.Name .. "_Dash"
+	newVFXPart.Weld.Part1 = rootPart
+	DashBaseC0 = newVFXPart.Weld.C0
+	newVFXPart.Parent = targetCharacter
+
+	local emitters = {}
+	for __ , ParticleEmitter in newVFXPart:GetDescendants() do
+		if ParticleEmitter:IsA('ParticleEmitter') then
+			insert( emitters , ParticleEmitter )
+		end
+	end
+
+	DashCachedCharacter = targetCharacter
+	DashCachedVFXPart = newVFXPart
+	DashCachedVFX = emitters
+
+	return emitters
+end
+
+local function emitDashDoubleJumpVFX(targetCharacter)
+	local emitters = getDashVFX(targetCharacter)
+	if not emitters then
+		return
+	end
+
+	if DashCachedVFXPart and DashCachedVFXPart:FindFirstChild("Weld") then
+		DashCachedVFXPart.Weld.C0 = (DashBaseC0 or CFrame.new()) * CFrame.new(0, 0, 1) * CFrame.Angles(math.rad(90), 0, 0)
+	end
+
+	for __ , ParticleEmitter : ParticleEmitter in emitters do
+		ParticleEmitter:Emit( 20 )
+	end
+end
+
+_G.EmitDashDoubleJumpVFX = emitDashDoubleJumpVFX
+
 UserInputService.JumpRequest:Connect(function()
 	if tick() - LastRequestTime < RequestCooldown then
 		return

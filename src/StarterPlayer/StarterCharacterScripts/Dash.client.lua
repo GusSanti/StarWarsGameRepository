@@ -13,6 +13,12 @@ local DASH_FORCE = 100000
 
 local lastDashTime = 0
 
+local function emitDashVFX(character)
+	if typeof(_G.EmitDashDoubleJumpVFX) == "function" then
+		_G.EmitDashDoubleJumpVFX(character)
+	end
+end
+
 local function getFlatDirection(vector)
 	local flatDirection = Vector3.new(vector.X, 0, vector.Z)
 	if flatDirection.Magnitude <= 0.05 then
@@ -72,6 +78,8 @@ local function dash()
 	dashVelocity.P = DASH_FORCE
 	dashVelocity.Velocity = getDashDirection(character, humanoid) * DASH_SPEED
 	dashVelocity.Parent = rootPart
+
+	emitDashVFX(character)
 
 	Debris:AddItem(dashVelocity, DASH_DURATION)
 end

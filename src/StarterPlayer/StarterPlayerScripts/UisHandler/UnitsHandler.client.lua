@@ -132,7 +132,7 @@ local craftStatLabelCache = {}
 local STAT_NAME_ALIASES = {
 	Damage = {"Damage", "DMG", "Dmg"},
 	Cooldown = {"Cooldown", "CD", "Cd", "CoolDown"},
-	Range = {"Range", "RNG", "Radius", "AttackRange", "Distance"},
+	Range = {"Range", "View", "RNG", "Radius", "AttackRange", "Distance"},
 }
 
 local buttonConnections = {
