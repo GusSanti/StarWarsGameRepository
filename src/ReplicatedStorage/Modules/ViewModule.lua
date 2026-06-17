@@ -164,7 +164,7 @@ local function isInputOverGuiObject(inputObject, guiObject)
 	end
 
 	for _, hoveredObject in playerGui:GetGuiObjectsAtPosition(inputPosition.X, inputPosition.Y) do
-		if hoveredObject == guiObject or hoveredObject:IsDescendantOf(guiObject) then
+		if hoveredObject ~= guiObject and hoveredObject:IsDescendantOf(guiObject) then
 			return true
 		end
 	end
@@ -1765,6 +1765,7 @@ function ViewModule.Item(Info)
 	local PlayerItem = Info[2]
 	local _resumeCallback = Info[3]
 	local isFromSummon = Info[4]
+	local AutoSummon = Info[5]
 
 	local TraitPointFromSummon = false
 	if string.find(tostring(Info[3]),"function") then
@@ -2173,66 +2174,75 @@ function ViewModule.Item(Info)
 	end)();
 
 	local ClickLoop = nil;
-	ClickLoop = UserInputService.InputBegan:Connect(function(Input)
-		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+	local function continue()
+		if ClickLoop then
 			ClickLoop:Disconnect();
 			ClickLoop = nil;
-			LoopTrue2 = false;
-			LoopTrue = false;
-			local OSCLOCK = os.clock();
-			ViewModule.infotween_out:Play()
-			while true do
-				local Clock = math.clamp((os.clock() - OSCLOCK) / 0.5, 0, 1);
-				local Easing3 = BackIn(Clock);
-				for Index, PartFound in Rand4 do
-					local CFOFFS = CurrentCamera.CFrame * CFrame.new(0, 0, -3.35) * Rand5[Rand6 - 1] * CFrame.new(0, Easing3 * -5, 0) * CFrame.Angles(0, 3.141592653589793, 0);
-					PartFound:PivotTo(CFOFFS * CFOF);
-					for _, ExtraPaer in MainParticle:GetDescendants() do
-						if ExtraPaer:IsA("ParticleEmitter") then
-							ExtraPaer.Enabled = false;
-						end;
+		end
+
+		LoopTrue2 = false;
+		LoopTrue = false;
+		local OSCLOCK = os.clock();
+		ViewModule.infotween_out:Play()
+		while true do
+			local Clock = math.clamp((os.clock() - OSCLOCK) / 0.5, 0, 1);
+			local Easing3 = BackIn(Clock);
+			for Index, PartFound in Rand4 do
+				local CFOFFS = CurrentCamera.CFrame * CFrame.new(0, 0, -3.35) * Rand5[Rand6 - 1] * CFrame.new(0, Easing3 * -5, 0) * CFrame.Angles(0, 3.141592653589793, 0);
+				PartFound:PivotTo(CFOFFS * CFOF);
+				for _, ExtraPaer in MainParticle:GetDescendants() do
+					if ExtraPaer:IsA("ParticleEmitter") then
+						ExtraPaer.Enabled = false;
 					end;
-					MainParticle.CFrame = CFOFFS * CFrame.new(-1.52587891E-05, -0.00043296814, 0.265960693, 1, 8.98941107E-06, 4.2619572E-06, -8.98976123E-06, 1, 8.23723967E-05, -4.26121642E-06, -8.23724331E-05, 1);
 				end;
-				DepthOfFieldEffect.FarIntensity = 1 - Clock;
-				RunService.RenderStepped:Wait();
-				if Clock >= 1 then
-
-					break;
-				end;				
+				MainParticle.CFrame = CFOFFS * CFrame.new(-1.52587891E-05, -0.00043296814, 0.265960693, 1, 8.98941107E-06, 4.2619572E-06, -8.98976123E-06, 1, 8.23723967E-05, -4.26121642E-06, -8.23724331E-05, 1);
 			end;
-			--if sound then
-			--	sound:Pause()
-			--	sound:Destroy()
-			--	end
-			if ViewModule.infotween_out.PlaybackState == Enum.PlaybackState.Completed then
+			DepthOfFieldEffect.FarIntensity = 1 - Clock;
+			RunService.RenderStepped:Wait();
+			if Clock >= 1 then
+				break;
+			end;				
+		end;
+		--if sound then
+		--	sound:Pause()
+		--	sound:Destroy()
+		--	end
+		if ViewModule.infotween_out.PlaybackState == Enum.PlaybackState.Completed then
+			HatchUi:Destroy()
+		else
+			local outTween; outTween = ViewModule.infotween_out.Completed:Connect(function()
 				HatchUi:Destroy()
-			else
-				local outTween; outTween = ViewModule.infotween_out.Completed:Connect(function()
-					HatchUi:Destroy()
-					outTween:Disconnect()
-				end)
-			end
+				outTween:Disconnect()
+			end)
+		end
 
+		DepthOfFieldEffect:Destroy();
+		MainParticle:Destroy();
+		for _, tHING in Rand4 do
+			tHING:Destroy();
+		end;
+		game.Players.LocalPlayer.CameraMinZoomDistance = 0.5;
+		for _, Object in Rand4 do
+			Object:Destroy();
+		end;
 
+		if type(isFromSummon) ~= "string" or not isFromSummon then
+			task.spawn(UiHandler.EnableAllButtons)
+			--ENALBE THE UI HERE--Knit.Get("Module", "GuiUtil"):RenableAllWindows()
+		end
+		if _resumeCallback and TraitPointFromSummon then
+			_resumeCallback()
+		end
+	end
 
-			DepthOfFieldEffect:Destroy();
-			MainParticle:Destroy();
-			for _, tHING in Rand4 do
-				tHING:Destroy();
-			end;
-			game.Players.LocalPlayer.CameraMinZoomDistance = 0.5;
-			for _, Object in Rand4 do
-				Object:Destroy();
-			end;
+	if AutoSummon then
+		task.delay(1, continue)
+		return
+	end
 
-			if type(isFromSummon) ~= "string" or not isFromSummon then
-				task.spawn(UiHandler.EnableAllButtons)
-				--ENALBE THE UI HERE--Knit.Get("Module", "GuiUtil"):RenableAllWindows()
-			end
-			if _resumeCallback and TraitPointFromSummon then
-				_resumeCallback()
-			end
+	ClickLoop = UserInputService.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+			continue()
 		end;
 	end);
 end

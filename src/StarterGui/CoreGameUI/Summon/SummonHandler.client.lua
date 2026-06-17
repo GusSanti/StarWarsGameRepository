@@ -1160,6 +1160,12 @@ local function updateNewAutoSummonVisual()
 	setStrokeColor(background, accentColor)
 end
 
+local function setAutoSummonState(isEnabled)
+	AutoSummon = isEnabled == true
+	ExitFrame.Visible = AutoSummon
+	updateNewAutoSummonVisual()
+end
+
 local function populateNewSummonGemShop()
 	local newSummons = getNewSummonsFrame()
 	if not newSummons then return end
@@ -1352,6 +1358,7 @@ end
 --warn('XO3')
 
 local function closeSummonMenu()
+	setAutoSummonState(false)
 	_G.CloseAll()
 	UiHandler.EnableAllButtons()
 end
@@ -1369,9 +1376,9 @@ local MedalLib = require(ReplicatedStorage.Modules.MedalLib)
 local Lighting = game:GetService("Lighting")
 local NewUIBlur = Lighting.NewUIBlur
 
-local function summon(amount, HolocronSummon, isLucky)
+local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 	if not _G.canSummon then return end
-	if not isSummonVisible() then return end
+	if not allowHiddenSummon and not isSummonVisible() then return end
 
 	if not player.TutorialWin.Value and not player.TutorialLossGemsClaimed.Value then
 		if amount ~= 10 then return end -- can only summon 10 if not tut
@@ -1396,9 +1403,7 @@ local function summon(amount, HolocronSummon, isLucky)
 	local result = game.ReplicatedStorage.Functions.SummonBannerEvent:InvokeServer(amount, HolocronSummon, isLucky, currentBannerIndex)
 	if typeof(result) ~= "table" then
 		if isAutoSummonRoll then
-			AutoSummon = false
-			ExitFrame.Visible = false
-			updateNewAutoSummonVisual()
+			setAutoSummonState(false)
 			completeAutoSummonSession()
 		end
 
@@ -1581,7 +1586,8 @@ local function summon(amount, HolocronSummon, isLucky)
 			summaryToShow = completeAutoSummonSession() or summonSummary
 		end
 
-		local shouldShowSummonSummary = not AutoSummon
+		local shouldContinueAutoSummon = AutoSummon
+		local shouldShowSummonSummary = not shouldContinueAutoSummon
 			and summaryToShow ~= nil
 			and typeof(_G.ShowRewardPopupSummary) == "function"
 
@@ -1596,14 +1602,18 @@ local function summon(amount, HolocronSummon, isLucky)
 				setSummonVisible(true)
 			end)
 			_G.ShowRewardPopupSummary(summaryToShow)
+		elseif shouldContinueAutoSummon then
+			summonSummaryPending = false
+			setRewardPopupClosedCallback(nil)
+			setSummonVisible(false)
 		else
 			summonSummaryPending = false
 			setRewardPopupClosedCallback(nil)
 			setSummonVisible(true)
 		end
 
-		if AutoSummon then
-			summon(1, HolocronSummon)
+		if shouldContinueAutoSummon then
+			summon(1, HolocronSummon, isLucky, true)
 		end
 	end)
 
@@ -1682,9 +1692,7 @@ local function wireNewSummonButtons()
 		summon(10)
 	end)
 	connectGuiButtonOnce(findFirstGuiButton(findChildPath(newSummons, {"Body", "Main", "Banner", "Buttons", "4"})), "AutoSummonBound", function()
-		ExitFrame.Visible = true
-		AutoSummon = true
-		updateNewAutoSummonVisual()
+		setAutoSummonState(true)
 		summon(1)
 	end)
 
@@ -1731,16 +1739,11 @@ SummonFrame.Banner.Summon_Holocron.Activated:Connect(function() summon(1,true) e
 SummonFrame.Banner.Bottom_Bar.Bottom_Bar.Lucky_Summons.Activated:Connect(function() summon(1, nil, true) end)
 
 ExitFrame.Trigger.Activated:Connect(function()
-	AutoSummon = false
-	ExitFrame.Visible = false
-	updateNewAutoSummonVisual()
+	setAutoSummonState(false)
 end)
 
 autoSummonButton.Activated:Connect(function()
-	ExitFrame.Visible = true
-
-	AutoSummon = true
-	updateNewAutoSummonVisual()
+	setAutoSummonState(true)
 	summon(1)
 end)
 
@@ -1989,6 +1992,7 @@ zone.playerExited:Connect(function(plr)
 			"newVisible=" .. tostring(getNewSummonsFrame() and getNewSummonsFrame().Visible),
 			"legacyVisible=" .. tostring(SummonFrame.Visible)
 		)
+		setAutoSummonState(false)
 		closePreferredSummonMenu()
 		--ChancesFrame.Visible = false
 		UiHandler.EnableAllButtons()

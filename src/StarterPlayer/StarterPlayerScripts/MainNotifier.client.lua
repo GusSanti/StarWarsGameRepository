@@ -14,6 +14,7 @@ until Player:FindFirstChild("DataLoaded") and PlayerGui:FindFirstChild("GameGui"
 
 local CoreGameUI = PlayerGui:WaitForChild("CoreGameUI")
 local NewUI = PlayerGui:WaitForChild("NewUI")
+local PurchaseRewardSummaryEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Client"):WaitForChild("PurchaseRewardSummary")
 local LegacyObtainedFrame = CoreGameUI.Notifier.Obtained
 local LegacyTemplate = LegacyObtainedFrame.Rewards.Template
 local LegacyBG = LegacyTemplate.BG
@@ -27,6 +28,9 @@ local Assets = { "rbxassetid://136316362283198" }
 local Currency = {
 	["Gems"] = "rbxassetid://131476601794300",
 	["Willpower"] = "http://www.roblox.com/asset/?id=125102279720110",
+	["TraitPoint"] = "rbxassetid://122847918518753",
+	["LuckySpins"] = "rbxassetid://98492072936946",
+	["x2 Gems"] = "rbxassetid://121901800310394",
 }
 local soundID = "1347153667"
 
@@ -39,6 +43,8 @@ local popupOpenedAt = 0
 local lastDebugGiveCommand = nil
 local lastDebugGiveAt = 0
 local automaticRewardPopupsSuppressed = false
+local serverRewardPopupSuppressionCount = 0
+local serverRewardPopupSuppressedUntil = 0
 
 local function getUISoundGroup()
 	local soundGroup = SoundService:FindFirstChild("UI")
@@ -177,7 +183,8 @@ local function attachRewardDisplay(container, data)
 		return
 	end
 
-	if data.isCurrency then
+	local rewardImage = data.image or Currency[data.CurrencyName] or Currency[data.viewportName]
+	if rewardImage then
 		local icon = Instance.new("ImageLabel")
 		icon.Name = "RewardCurrencyIcon"
 		icon.BackgroundTransparency = 1
@@ -185,7 +192,7 @@ local function attachRewardDisplay(container, data)
 		icon.Position = UDim2.new()
 		icon.AnchorPoint = Vector2.zero
 		icon.ScaleType = Enum.ScaleType.Fit
-		icon.Image = Currency[data.CurrencyName] or ""
+		icon.Image = tostring(rewardImage)
 		icon.ZIndex = 20
 		icon:SetAttribute("RewardPopupDynamicDisplay", true)
 		icon.Parent = container
@@ -501,16 +508,20 @@ local function getSummaryTotalQuantity(entries)
 end
 
 local function getRewardCardTitle(entry, fallbackTitle)
+	if entry and entry.cardTitle then
+		return tostring(entry.cardTitle)
+	end
+
 	if entry and entry.wasSold then
 		return "AUTO SOLD"
 	end
 
-	if entry and entry.isCurrency then
-		return "LEVEL REWARD"
-	end
-
 	if entry and entry.rarity then
 		return string.upper(tostring(entry.rarity))
+	end
+
+	if entry and entry.isCurrency then
+		return fallbackTitle or "CURRENCY"
 	end
 
 	return fallbackTitle or "REWARD"
@@ -698,6 +709,7 @@ local function showNewSummaryPopup(data)
 	local entries = data.summaryEntries or {}
 	local featured = data.featuredEntry or entries[1]
 	local totalQuantity = data.totalQuantity or getSummaryTotalQuantity(entries)
+	local summaryCardTitle = data.summaryCardTitle or (totalQuantity > 1 and "SUMMON REWARD" or "NEW CARD")
 
 	refs.root.Visible = true
 	FadeBlackBackGround(refs.root, true)
@@ -709,7 +721,7 @@ local function showNewSummaryPopup(data)
 
 	setTextValue(refs.title, data.summaryTitle or (totalQuantity > 1 and "You've Earned" or "You've Got"))
 	setTextValue(refs.clickText, "Click anywhere to close")
-	populateNewPopupProfiles(refs, entries, totalQuantity > 1 and "SUMMON REWARD" or "NEW CARD")
+	populateNewPopupProfiles(refs, entries, summaryCardTitle)
 
 	playNewPopupIntro(refs)
 end
@@ -894,6 +906,12 @@ local function enqueueRewardPopup(data)
 	end
 end
 
+local function shouldSuppressAutomaticRewardPopups()
+	return automaticRewardPopupsSuppressed
+		or serverRewardPopupSuppressionCount > 0
+		or os.clock() < serverRewardPopupSuppressedUntil
+end
+
 local function parseDebugGiveCommand(message)
 	if typeof(message) ~= "string" then
 		return nil
@@ -956,6 +974,7 @@ _G.ShowRewardPopupSummary = function(summaryData)
 	enqueueRewardPopup({
 		kind = "summary",
 		summaryTitle = summaryData.summaryTitle,
+		summaryCardTitle = summaryData.summaryCardTitle,
 		summaryEntries = summaryData.entries or {},
 		featuredEntry = summaryData.featured,
 		totalQuantity = summaryData.totalQuantity,
@@ -973,7 +992,7 @@ _G.SetRewardPopupClosedCallback = function(callback)
 end
 
 function DisplayCurrency(_, CurrencyName, Currencyvalue)
-	if automaticRewardPopupsSuppressed then
+	if shouldSuppressAutomaticRewardPopups() then
 		return
 	end
 
@@ -999,7 +1018,7 @@ function DisplayItem()
 				return
 			end
 
-			if automaticRewardPopupsSuppressed then
+			if shouldSuppressAutomaticRewardPopups() then
 				return
 			end
 
@@ -1011,6 +1030,27 @@ function DisplayItem()
 		end)
 	end
 end
+
+PurchaseRewardSummaryEvent.OnClientEvent:Connect(function(payload)
+	if typeof(payload) ~= "table" then
+		return
+	end
+
+	local action = payload.action
+	if action == "begin" then
+		serverRewardPopupSuppressionCount += 1
+		return
+	end
+
+	if action == "complete" then
+		serverRewardPopupSuppressionCount = math.max(serverRewardPopupSuppressionCount - 1, 0)
+		serverRewardPopupSuppressedUntil = os.clock() + (tonumber(payload.suppressForSeconds) or 1.5)
+
+		if payload.summary then
+			_G.ShowRewardPopupSummary(payload.summary)
+		end
+	end
+end)
 
 function ProcessQueue()
 	if #displayQueue <= 0 then

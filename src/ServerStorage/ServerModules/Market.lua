@@ -8,13 +8,59 @@ local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local DiscordHook = require(game.ServerStorage.ServerModules.DiscordWebhook)
 local PurchaseHook = DiscordHook.new("PurchaseLog")
 local GameAnalytics = require(ReplicatedStorage.GameAnalytics)
+local Upgrades = require(ReplicatedStorage.Upgrades)
+local ItemStats = require(ReplicatedStorage:WaitForChild("ItemStats"))
 
 local GiftToList = {}
-local ChatMessage = game.ReplicatedStorage.Events.Client.ChatMessage
-local Message = game.ReplicatedStorage.Events.Client.Message
+local ClientEvents = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Client")
+local ChatMessage = ClientEvents.ChatMessage
+local Message = ClientEvents.Message
 local PassesList = require(ReplicatedStorage.Modules.PassesList)
 
 local ProcessingPurchases = {}
+local PurchaseRewardSummaryEvent = ClientEvents:FindFirstChild("PurchaseRewardSummary")
+
+if not PurchaseRewardSummaryEvent then
+	PurchaseRewardSummaryEvent = Instance.new("RemoteEvent")
+	PurchaseRewardSummaryEvent.Name = "PurchaseRewardSummary"
+	PurchaseRewardSummaryEvent.Parent = ClientEvents
+end
+
+local RewardRarityPriority = {
+	Secret = 7,
+	Mythical = 6,
+	Unique = 5,
+	Legendary = 4,
+	Epic = 3,
+	Rare = 2,
+	Common = 1,
+}
+
+local TrackedPurchaseCurrencies = {
+	{
+		valueName = "Gems",
+		displayName = "Gems",
+		viewportName = "Gems",
+	},
+	{
+		valueName = "TraitPoint",
+		displayName = "Willpower",
+		viewportName = "Willpower",
+	},
+	{
+		valueName = "LuckySpins",
+		displayName = "Lucky Summons",
+		viewportName = "LuckySpins",
+	},
+}
+
+local TrackedPurchaseValues = {
+	{
+		path = {"ClanData", "CreationTokens"},
+		displayName = "Clan Creation Token",
+		cardTitle = "PURCHASE REWARD",
+	},
+}
 
 game:GetService('Players').PlayerAdded:Connect(function(player)
 	repeat task.wait() until not player or player:FindFirstChild('DataLoaded')
@@ -30,6 +76,294 @@ game:GetService('Players').PlayerAdded:Connect(function(player)
 end)
 
 local module = {}
+
+local function getRewardRarityPriority(rarityName)
+	return RewardRarityPriority[rarityName] or 0
+end
+
+local function getPurchaseRewardSortScore(entry)
+	local categoryScore = 0
+
+	if entry.entryType == "tower" then
+		categoryScore = 5000
+	elseif entry.entryType == "pass" then
+		categoryScore = 4000
+	elseif entry.entryType == "battlepass" then
+		categoryScore = 3500
+	elseif entry.entryType == "item" then
+		categoryScore = 3000
+	elseif entry.entryType == "currency" then
+		categoryScore = 2000
+	else
+		categoryScore = 1000
+	end
+
+	return categoryScore + getRewardRarityPriority(entry.rarity) * 100 + math.min(entry.quantity or 1, 99)
+end
+
+local function buildTowerRewardName(baseName, isShiny, traitName)
+	local displayName = tostring(baseName or "Reward")
+
+	if isShiny then
+		displayName = "Shiny " .. displayName
+	end
+
+	if traitName and traitName ~= "" then
+		displayName = displayName .. " [" .. traitName .. "]"
+	end
+
+	return displayName
+end
+
+local function safeFindChildPath(root, path)
+	local current = root
+
+	for _, name in ipairs(path or {}) do
+		current = current and current:FindFirstChild(name)
+		if not current then
+			return nil
+		end
+	end
+
+	return current
+end
+
+local function getNumberValue(root, childName)
+	local child = root and root:FindFirstChild(childName)
+	if child and child:IsA("ValueBase") and typeof(child.Value) == "number" then
+		return child.Value
+	end
+
+	return 0
+end
+
+local function capturePurchaseRewardState(player)
+	local snapshot = {
+		currencies = {},
+		items = {},
+		passes = {},
+		towers = {},
+		battlepassPremium = false,
+		battlepassTier = 0,
+		values = {},
+	}
+
+	for _, currencyConfig in ipairs(TrackedPurchaseCurrencies) do
+		snapshot.currencies[currencyConfig.valueName] = getNumberValue(player, currencyConfig.valueName)
+	end
+
+	local itemsFolder = player and player:FindFirstChild("Items")
+	if itemsFolder then
+		for _, itemValue in ipairs(itemsFolder:GetChildren()) do
+			if itemValue:IsA("ValueBase") and typeof(itemValue.Value) == "number" then
+				snapshot.items[itemValue.Name] = itemValue.Value
+			end
+		end
+	end
+
+	local ownGamePasses = player and player:FindFirstChild("OwnGamePasses")
+	if ownGamePasses then
+		for _, passValue in ipairs(ownGamePasses:GetChildren()) do
+			if passValue:IsA("BoolValue") then
+				snapshot.passes[passValue.Name] = passValue.Value == true
+			end
+		end
+	end
+
+	local ownedTowers = player and player:FindFirstChild("OwnedTowers")
+	if ownedTowers then
+		for _, towerValue in ipairs(ownedTowers:GetChildren()) do
+			if towerValue:IsA("StringValue") then
+				local uniqueId = towerValue:GetAttribute("UniqueID") or towerValue.Name
+				snapshot.towers[tostring(uniqueId)] = {
+					name = towerValue.Name,
+					traitName = towerValue:GetAttribute("Trait"),
+					isShiny = towerValue:GetAttribute("Shiny") == true,
+					rarity = Upgrades[towerValue.Name] and Upgrades[towerValue.Name].Rarity or nil,
+				}
+			end
+		end
+	end
+
+	local battlepassData = player and player:FindFirstChild("BattlepassData")
+	if battlepassData then
+		local premium = battlepassData:FindFirstChild("Premium")
+		local tier = battlepassData:FindFirstChild("Tier")
+
+		if premium and premium:IsA("BoolValue") then
+			snapshot.battlepassPremium = premium.Value == true
+		end
+
+		if tier and tier:IsA("ValueBase") and typeof(tier.Value) == "number" then
+			snapshot.battlepassTier = tier.Value
+		end
+	end
+
+	for _, trackedValue in ipairs(TrackedPurchaseValues) do
+		local valueObject = safeFindChildPath(player, trackedValue.path)
+		if valueObject and valueObject:IsA("ValueBase") and typeof(valueObject.Value) == "number" then
+			snapshot.values[table.concat(trackedValue.path, ".")] = valueObject.Value
+		end
+	end
+
+	return snapshot
+end
+
+local function insertPurchaseRewardEntry(entries, entryData)
+	entryData.sortScore = getPurchaseRewardSortScore(entryData)
+	table.insert(entries, entryData)
+end
+
+local function buildPurchaseRewardSummary(productName, beforeState, afterState)
+	if not (beforeState and afterState) then
+		return nil
+	end
+
+	local entries = {}
+	local totalQuantity = 0
+
+	for _, currencyConfig in ipairs(TrackedPurchaseCurrencies) do
+		local previousValue = beforeState.currencies[currencyConfig.valueName] or 0
+		local currentValue = afterState.currencies[currencyConfig.valueName] or 0
+		local diff = currentValue - previousValue
+
+		if diff > 0 then
+			insertPurchaseRewardEntry(entries, {
+				entryType = "currency",
+				name = currencyConfig.displayName,
+				displayName = currencyConfig.displayName,
+				viewportName = currencyConfig.viewportName,
+				isCurrency = true,
+				quantity = diff,
+			})
+			totalQuantity += diff
+		end
+	end
+
+	for _, trackedValue in ipairs(TrackedPurchaseValues) do
+		local valueKey = table.concat(trackedValue.path, ".")
+		local previousValue = beforeState.values[valueKey] or 0
+		local currentValue = afterState.values[valueKey] or 0
+		local diff = currentValue - previousValue
+
+		if diff > 0 then
+			insertPurchaseRewardEntry(entries, {
+				entryType = "value",
+				name = trackedValue.displayName,
+				displayName = trackedValue.displayName,
+				quantity = diff,
+				cardTitle = trackedValue.cardTitle,
+			})
+			totalQuantity += diff
+		end
+	end
+
+	for itemName, currentValue in pairs(afterState.items) do
+		local previousValue = beforeState.items[itemName] or 0
+		local diff = currentValue - previousValue
+
+		if diff > 0 then
+			local itemInfo = ItemStats[itemName]
+			insertPurchaseRewardEntry(entries, {
+				entryType = "item",
+				name = itemName,
+				displayName = itemName,
+				viewportName = itemName,
+				rarity = itemInfo and itemInfo.Rarity or nil,
+				quantity = diff,
+			})
+			totalQuantity += diff
+		end
+	end
+
+	for uniqueId, towerInfo in pairs(afterState.towers) do
+		if beforeState.towers[uniqueId] == nil then
+			insertPurchaseRewardEntry(entries, {
+				entryType = "tower",
+				entryKey = "tower:" .. tostring(uniqueId),
+				name = towerInfo.name,
+				displayName = buildTowerRewardName(towerInfo.name, towerInfo.isShiny, towerInfo.traitName),
+				viewportName = towerInfo.name,
+				rarity = towerInfo.rarity,
+				isShiny = towerInfo.isShiny,
+				quantity = 1,
+			})
+			totalQuantity += 1
+		end
+	end
+
+	for passName, currentValue in pairs(afterState.passes) do
+		if currentValue == true and beforeState.passes[passName] ~= true and passName ~= productName then
+			insertPurchaseRewardEntry(entries, {
+				entryType = "pass",
+				name = passName,
+				displayName = passName,
+				quantity = 1,
+				cardTitle = "PASS",
+			})
+			totalQuantity += 1
+		end
+	end
+
+	if afterState.battlepassPremium == true and beforeState.battlepassPremium ~= true then
+		insertPurchaseRewardEntry(entries, {
+			entryType = "battlepass",
+			name = "Premium Battlepass",
+			displayName = "Premium Battlepass",
+			quantity = 1,
+			cardTitle = "PASS",
+		})
+		totalQuantity += 1
+	end
+
+	local battlepassTierDiff = (afterState.battlepassTier or 0) - (beforeState.battlepassTier or 0)
+	if battlepassTierDiff > 0 then
+		insertPurchaseRewardEntry(entries, {
+			entryType = "battlepass",
+			name = "Battlepass Tier Skip",
+			displayName = "Battlepass Tier Skip",
+			quantity = battlepassTierDiff,
+			cardTitle = "BATTLEPASS",
+		})
+		totalQuantity += battlepassTierDiff
+	end
+
+	table.sort(entries, function(a, b)
+		if (a.sortScore or 0) ~= (b.sortScore or 0) then
+			return (a.sortScore or 0) > (b.sortScore or 0)
+		end
+
+		if (a.quantity or 0) ~= (b.quantity or 0) then
+			return (a.quantity or 0) > (b.quantity or 0)
+		end
+
+		return tostring(a.displayName or a.name or "") < tostring(b.displayName or b.name or "")
+	end)
+
+	if #entries == 0 then
+		return nil
+	end
+
+	return {
+		summaryTitle = string.format("%s Rewards", tostring(productName or "Purchase")),
+		summaryCardTitle = "PURCHASE REWARD",
+		entries = entries,
+		featured = entries[1],
+		totalQuantity = totalQuantity,
+	}
+end
+
+local function firePurchaseRewardPopupState(player, action, summaryData)
+	if not (player and player.Parent) then
+		return
+	end
+
+	PurchaseRewardSummaryEvent:FireClient(player, {
+		action = action,
+		summary = summaryData,
+		suppressForSeconds = 1.5,
+	})
+end
 
 local function getOwnedProductFlag(player, productName)
 	local ownGamePasses = player and player:FindFirstChild("OwnGamePasses")
@@ -148,17 +482,31 @@ function module.ProcessReceipt(ReceiptInfo)
 		
 		local functionSuccess, functionResult 
 		local targetPlayer = IsGift and GiftPlayer or Player
+		local rewardSnapshotBefore = capturePurchaseRewardState(targetPlayer)
 
 		if ProductInfo.OneTimePurchase and playerOwnsProduct(targetPlayer, ProductName, ProductInfo) then
 			warn("One-time product receipt received for already-owned product:", ProductName, "Player:", targetPlayer.Name)
 			return true
 		end
 
+		firePurchaseRewardPopupState(targetPlayer, "begin")
+
 		if IsGamePass then
 			functionSuccess, functionResult = pcall(RunFunction, targetPlayer)
 		else
 			functionSuccess, functionResult = pcall(RunFunction, ReceiptInfo, targetPlayer)
 		end
+
+		local rewardSummary = nil
+		if functionSuccess and functionResult then
+			rewardSummary = buildPurchaseRewardSummary(
+				ProductName,
+				rewardSnapshotBefore,
+				capturePurchaseRewardState(targetPlayer)
+			)
+		end
+
+		firePurchaseRewardPopupState(targetPlayer, "complete", rewardSummary)
 
 		if not functionSuccess then
 			warn(`Purchase Function Threw Error: {functionResult}`)
