@@ -232,6 +232,9 @@ return {
 		Kills = 0,
 		YounglingsEnded = 0
 	},
+	TutorialStarted = false,
+	TutorialSection = "start",
+	TutorialStep = 1,
 	TutorialModeCompleted = false,
 	TutorialWin = false,
 	TutorialCompleted = false,

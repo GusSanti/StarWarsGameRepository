@@ -1,15 +1,13 @@
---// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Info = workspace:WaitForChild("Info")
 
---// Dependencies
-local tutorialSteps = require(script.TutotrialSteps)
-local events = require(script.Events)
+local tutorialFolder = script:FindFirstChild("Tutorial") or script.Parent:WaitForChild("Tutorial")
+local tutorialSteps = require(tutorialFolder:WaitForChild("TutotrialSteps"))
+local events = require(tutorialFolder:WaitForChild("Events"))
 
---// UI
 local player = Players.LocalPlayer
 local dialogueFrame = script.Parent:WaitForChild("Dialogue")
 local dialogueScale = dialogueFrame:FindFirstChildOfClass("UIScale")
@@ -17,8 +15,10 @@ local contents = dialogueFrame:WaitForChild("Contents")
 local bgText = contents:WaitForChild("Bg_Text")
 local label = bgText:WaitForChild("TextLabel")
 
+local TutorialRemote = ReplicatedStorage.Events.Client:WaitForChild("Tutorial")
 local textThread = nil
 local gameOverConnection = nil
+local matchResultSaved = false
 
 local lostText = "Oh no! You ended up losing, no worries, you can try again."
 
@@ -52,6 +52,27 @@ local function showStepText(text: string)
 	end)
 end
 
+local function saveArenaCheckpoint(stepIndex)
+	TutorialRemote:FireServer("checkpoint", {
+		section = "arena",
+		step = stepIndex,
+		started = true,
+		firstTime = false,
+		modeCompleted = true,
+	})
+end
+
+local function saveMatchResult(won)
+	if matchResultSaved then
+		return
+	end
+
+	matchResultSaved = true
+	TutorialRemote:FireServer("match_result", {
+		win = won,
+	})
+end
+
 local function shouldSkipTutorial()
 	return Info.Raid.Value == true
 		or Info.Infinity.Value == true
@@ -71,6 +92,7 @@ local function RunTutorial()
 		tween(dialogueScale, tweenInfo, {Scale = 1})
 	end
 
+	matchResultSaved = false
 	local lost = false
 
 	if gameOverConnection then
@@ -78,7 +100,13 @@ local function RunTutorial()
 	end
 
 	gameOverConnection = Info.GameOver:GetPropertyChangedSignal("Value"):Connect(function()
-		if Info.GameOver.Value and not Info.Victory.Value then
+		if not Info.GameOver.Value then
+			return
+		end
+
+		saveMatchResult(Info.Victory.Value == true)
+
+		if not Info.Victory.Value then
 			lost = true
 			showStepText(lostText)
 
@@ -94,6 +122,8 @@ local function RunTutorial()
 		if Info.Victory.Value or lost then
 			break
 		end
+
+		saveArenaCheckpoint(stepNum)
 
 		if step.callback then
 			pcall(step.callback)
@@ -120,23 +150,22 @@ local function RunTutorial()
 		return
 	end
 
+	saveMatchResult(true)
+
 	if dialogueScale then
 		tween(dialogueScale, tweenInfo, {Scale = 0})
 	end
-	warn("[TUTORIAL]: Completed :)")
-end
 
-if player:GetAttribute("TutorialWin") then
-	return
+	warn("[TUTORIAL]: Completed :)")
 end
 
 repeat
 	task.wait(0.1)
 until player:FindFirstChild("DataLoaded")
 
-local tutorialModeCompleted = player:FindFirstChild("TutorialModeCompleted")
-local tutorialWinValue = player:FindFirstChild("TutorialWin")
+local tutorialCompleted = player:WaitForChild("TutorialCompleted")
+local tutorialSection = player:WaitForChild("TutorialSection")
 
-if tutorialModeCompleted and tutorialModeCompleted.Value == true and tutorialWinValue and not tutorialWinValue.Value then
+if not tutorialCompleted.Value and tutorialSection.Value == "arena" then
 	RunTutorial()
 end

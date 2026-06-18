@@ -1029,6 +1029,37 @@ end)
 
 local debounce = false
 local dictionaryFolders = {}
+local TUTORIAL_LOBBY_REENTRY_STEP = 9
+
+local function prepareTutorialStateForSave(player)
+	local tutorialStarted = player:FindFirstChild("TutorialStarted")
+	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
+	local tutorialSection = player:FindFirstChild("TutorialSection")
+	local tutorialStep = player:FindFirstChild("TutorialStep")
+
+	if tutorialStarted and tutorialStarted.Value and player:FindFirstChild("FirstTime") then
+		player.FirstTime.Value = false
+	end
+
+	if tutorialCompleted and tutorialCompleted.Value and tutorialSection then
+		tutorialSection.Value = "complete"
+	end
+
+	if game.PlaceId == PlaceData.Game
+		and tutorialStarted
+		and tutorialStarted.Value
+		and tutorialCompleted
+		and not tutorialCompleted.Value
+		and tutorialSection
+		and tutorialSection.Value == "arena"
+	then
+		tutorialSection.Value = "start"
+
+		if tutorialStep then
+			tutorialStep.Value = TUTORIAL_LOBBY_REENTRY_STEP
+		end
+	end
+end
 
 Players.PlayerRemoving:Connect(function(player)
 	local profile = Profiles[player]
@@ -1038,7 +1069,7 @@ Players.PlayerRemoving:Connect(function(player)
 			player.TimeSpent.Value += ( os.time() - ServerJoined.Value )
 		end
 
-		player.FirstTime.Value = false
+		prepareTutorialStateForSave(player)
 		local dat = DeepSaveInstancesToData(player:GetChildren(), 0, true)
 		if #dat ~= 0 then
 			warn('LOGGING OUT')

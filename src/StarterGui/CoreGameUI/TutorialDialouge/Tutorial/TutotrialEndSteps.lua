@@ -11,7 +11,7 @@ local module = {
 	},
 	{
 		text = "Great! With these units now, you'll be able to tackle this game with no problem! That concludes our tutorial.",
-		waitFor = "Finished",
+		waitFor = "Finished2",
 		index = 3
 	},
 }

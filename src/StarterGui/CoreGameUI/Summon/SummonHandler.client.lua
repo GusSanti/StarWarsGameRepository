@@ -731,6 +731,19 @@ local function setRewardPopupClosedCallback(callback)
 	end
 end
 
+local function isTutorialSummonFlowActive()
+	local tutorialStarted = player:FindFirstChild("TutorialStarted")
+	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
+	local tutorialSection = player:FindFirstChild("TutorialSection")
+
+	return tutorialStarted
+		and tutorialStarted.Value
+		and tutorialCompleted
+		and not tutorialCompleted.Value
+		and tutorialSection
+		and (tutorialSection.Value == "start" or tutorialSection.Value == "end")
+end
+
 local function beginAutoSummonSession()
 	autoSummonSessionActive = true
 	autoSummonSessionSummary = nil
@@ -1599,8 +1612,13 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 			setSummonVisible(false)
 			setRewardPopupClosedCallback(function()
 				summonSummaryPending = false
-				setSummonVisible(true)
-				UiHandler.DisableAllButtons()
+				if isTutorialSummonFlowActive() then
+					setSummonVisible(false)
+					UiHandler.EnableAllButtons()
+				else
+					setSummonVisible(true)
+					UiHandler.DisableAllButtons()
+				end
 			end)
 			_G.ShowRewardPopupSummary(summaryToShow)
 		elseif shouldContinueAutoSummon then
@@ -1610,8 +1628,13 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 		else
 			summonSummaryPending = false
 			setRewardPopupClosedCallback(nil)
-			setSummonVisible(true)
-			UiHandler.DisableAllButtons()
+			if isTutorialSummonFlowActive() then
+				setSummonVisible(false)
+				UiHandler.EnableAllButtons()
+			else
+				setSummonVisible(true)
+				UiHandler.DisableAllButtons()
+			end
 		end
 
 		if shouldContinueAutoSummon then

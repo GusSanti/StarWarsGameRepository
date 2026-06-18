@@ -53,6 +53,7 @@ local CraftUnitNameText = Craft:WaitForChild("UnitName")
 local GeneralClaimButton = nil
 
 local TemplateUnit = Content:WaitForChild("1")
+local TemplateBorder = Content:WaitForChild("Borders")
 local UnitsIndex = Player:WaitForChild("Index"):WaitForChild("Units Index")
 local Container = Zone.new(workspace:WaitForChild("IndexBox"):WaitForChild("IndexHitbox"))
 
@@ -258,6 +259,22 @@ local function findFirstGuiButton(root)
 	return root:FindFirstChildWhichIsA("GuiButton", true)
 end
 
+local function createRarityDivider(rarity, layoutOrder)
+	local divider = TemplateBorder:Clone()
+	local title = divider:FindFirstChild("Title", true)
+
+	divider.Name = "Borders_" .. rarity
+	divider.LayoutOrder = layoutOrder
+	divider.Visible = true
+
+	if title and (title:IsA("TextLabel") or title:IsA("TextButton") or title:IsA("TextBox")) then
+		title.Text = rarity
+	end
+
+	divider.Parent = Content
+	return divider
+end
+
 local function applyViewportState(viewport, isRevealed)
 	if not viewport then
 		return
@@ -277,7 +294,7 @@ end
 
 local function Update()
 	for _, unitFrame in Content:GetChildren() do
-		if unitFrame:IsA("Frame") and unitFrame.Name ~= "1" and unitFrame.Name ~= "UIGridLayout" then
+		if unitFrame:IsA("Frame") and unitFrame ~= TemplateUnit and unitFrame ~= TemplateBorder and Upgrades[unitFrame.Name] then
 			local unitName = unitFrame.Name
 			local rarity = Upgrades[unitName].Rarity
 
@@ -425,6 +442,7 @@ end
 
 -- INIT
 TemplateUnit.Visible = false
+TemplateBorder.Visible = false
 
 for Name in Upgrades do
 	if not table.find(allUnitTable, Name) then
@@ -438,14 +456,24 @@ table.sort(allUnitTable, function(a, b)
 	return RARITY_PRIORITY[Upgrades[a].Rarity] < RARITY_PRIORITY[Upgrades[b].Rarity]
 end)
 
-for index, UnitName in allUnitTable do
+local currentRarity = nil
+local layoutOrder = 1
+
+for _, UnitName in allUnitTable do
 	local rarity = Upgrades[UnitName].Rarity
+
+	if rarity ~= currentRarity then
+		currentRarity = rarity
+		createRarityDivider(rarity, layoutOrder)
+		layoutOrder += 1
+	end
 
 	local Template = TemplateUnit:Clone()
 	Template.Name = UnitName
-	Template.LayoutOrder = index
+	Template.LayoutOrder = layoutOrder
 	Template.Visible = true
 	Template.Parent = Content
+	layoutOrder += 1
 
 	local function handleUnitSelection()
 		ShowUnit(UnitName)

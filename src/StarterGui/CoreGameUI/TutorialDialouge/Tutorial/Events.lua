@@ -16,6 +16,7 @@ local Contents = Dialogue:WaitForChild("Contents")
 local ContinueButton = Contents:WaitForChild("Options"):WaitForChild("Continue")
 
 local tutorialEvents = {}
+local tutorialSelectedTower = nil
 
 if Player:GetAttribute("TutorialCompleted") then return end
 
@@ -92,6 +93,192 @@ local function findUnitsFrame()
 	return inventory and inventory:FindFirstChild("Units")
 end
 
+local function findUnitsHandler()
+	local playerScripts = Player:FindFirstChild("PlayerScripts")
+	if not playerScripts then
+		return nil
+	end
+
+	local uiHandlerFolder = playerScripts:FindFirstChild("UisHandler")
+	local unitsHandler = uiHandlerFolder and uiHandlerFolder:FindFirstChild("UnitsHandler")
+	if unitsHandler then
+		return unitsHandler
+	end
+
+	return playerScripts:FindFirstChild("UnitsHandler", true)
+end
+
+local function findSelectedTowerValue()
+	local unitsHandler = findUnitsHandler()
+	local selectedTowerValue = unitsHandler and unitsHandler:FindFirstChild("SelectedTower")
+
+	if selectedTowerValue and selectedTowerValue:IsA("ObjectValue") then
+		return selectedTowerValue
+	end
+
+	return nil
+end
+
+local function findUnitsContentGrid()
+	local unitsFrame = findUnitsFrame()
+	if not unitsFrame then
+		return nil
+	end
+
+	local mainFrame = unitsFrame:FindFirstChild("Main")
+	local itemsTab = mainFrame and mainFrame:FindFirstChild("ItemsTab")
+	local contentGrid = itemsTab and itemsTab:FindFirstChild("Content")
+	if contentGrid then
+		return contentGrid
+	end
+
+	return unitsFrame:FindFirstChild("Content", true)
+end
+
+local function getSelectableUnitEntries()
+	local contentGrid = findUnitsContentGrid()
+	if not contentGrid then
+		return {}
+	end
+
+	local entries = {}
+
+	for _, child in ipairs(contentGrid:GetChildren()) do
+		local towerValue = child:FindFirstChild("TowerValue")
+		if towerValue then
+			local button = getGuiButtonFromItem(child)
+			if button then
+				table.insert(entries, {
+					button = button,
+					tower = towerValue.Value,
+				})
+			end
+		end
+	end
+
+	return entries
+end
+
+local function isTowerEquipped(tower)
+	if not tower then
+		return false
+	end
+
+	local equippedSlot = tower:GetAttribute("EquippedSlot")
+	return tower:GetAttribute("Equipped") == true
+		or (typeof(equippedSlot) == "string" and equippedSlot ~= "")
+end
+
+local function waitForUnitSelection()
+	local selectionEvent = Instance.new("BindableEvent")
+	local selectionConnections = {}
+	local selectionCompleted = false
+
+	local function completeSelection(selectedTower)
+		if selectionCompleted then
+			return
+		end
+
+		selectionCompleted = true
+		selectionEvent:Fire(selectedTower)
+	end
+
+	local function disconnectSelectionConnections()
+		for _, connection in ipairs(selectionConnections) do
+			connection:Disconnect()
+		end
+
+		table.clear(selectionConnections)
+	end
+
+	local function connectUnitButtons()
+		local entries = getSelectableUnitEntries()
+		if #entries == 0 then
+			return false
+		end
+
+		for _, entry in ipairs(entries) do
+			table.insert(selectionConnections, entry.button.Activated:Connect(function()
+				if entry.tower and not isTowerEquipped(entry.tower) then
+					completeSelection(entry.tower)
+				end
+			end))
+		end
+
+		return true
+	end
+
+	while not connectUnitButtons() do
+		task.wait(0.1)
+	end
+
+	local selectedTower = selectionEvent.Event:Wait()
+	disconnectSelectionConnections()
+	selectionEvent:Destroy()
+
+	return selectedTower
+end
+
+local function waitForTowerToEquip(initialTower)
+	local selectedTowerValue = findSelectedTowerValue()
+
+	while not selectedTowerValue do
+		task.wait(0.1)
+		selectedTowerValue = findSelectedTowerValue()
+	end
+
+	local equippedEvent = Instance.new("BindableEvent")
+	local selectedTowerChangedConnection
+	local towerConnections = {}
+
+	local function disconnectTowerConnections()
+		for _, connection in ipairs(towerConnections) do
+			connection:Disconnect()
+		end
+
+		table.clear(towerConnections)
+	end
+
+	local function observeTower(tower, allowImmediateCompletion)
+		disconnectTowerConnections()
+
+		if not tower then
+			return
+		end
+
+		if allowImmediateCompletion and isTowerEquipped(tower) then
+			equippedEvent:Fire()
+			return
+		end
+
+		table.insert(towerConnections, tower:GetAttributeChangedSignal("Equipped"):Connect(function()
+			if isTowerEquipped(tower) then
+				equippedEvent:Fire()
+			end
+		end))
+
+		table.insert(towerConnections, tower:GetAttributeChangedSignal("EquippedSlot"):Connect(function()
+			if isTowerEquipped(tower) then
+				equippedEvent:Fire()
+			end
+		end))
+	end
+
+	observeTower(initialTower or selectedTowerValue.Value, true)
+
+	selectedTowerChangedConnection = selectedTowerValue:GetPropertyChangedSignal("Value"):Connect(function()
+		if selectedTowerValue.Value then
+			observeTower(selectedTowerValue.Value, false)
+		end
+	end)
+
+	equippedEvent.Event:Wait()
+
+	selectedTowerChangedConnection:Disconnect()
+	disconnectTowerConnections()
+	equippedEvent:Destroy()
+end
+
 local function waitForUnitsVisibilityChanged()
 	local unitsFrame = findUnitsFrame()
 
@@ -112,6 +299,59 @@ local function findSummonFrame()
 
 	local summonFolder = CoreGameGui:FindFirstChild("Summon")
 	return summonFolder and summonFolder:FindFirstChild("SummonFrame")
+end
+
+local function findRewardPopupFrame()
+	NewUI = NewUI or Gui:FindFirstChild("NewUI")
+
+	local newRewardPopup = NewUI and NewUI:FindFirstChild("RewardPopUp")
+	if newRewardPopup and newRewardPopup:IsA("GuiObject") then
+		return newRewardPopup
+	end
+
+	local notifier = CoreGameGui:FindFirstChild("Notifier")
+	local legacyRewardPopup = notifier and notifier:FindFirstChild("Obtained")
+	if legacyRewardPopup and legacyRewardPopup:IsA("GuiObject") then
+		return legacyRewardPopup
+	end
+
+	return nil
+end
+
+local function isRewardPopupVisible()
+	local rewardPopup = findRewardPopupFrame()
+	return rewardPopup and rewardPopup.Visible == true
+end
+
+local function waitForSummonRewardPopupToClose()
+	local summonFrame = findSummonFrame()
+	local observedSummonFlow = false
+	local observedRewardPopup = isRewardPopupVisible()
+	local deadline = os.clock() + 20
+
+	while os.clock() < deadline do
+		summonFrame = findSummonFrame() or summonFrame
+
+		if isRewardPopupVisible() then
+			observedRewardPopup = true
+		end
+
+		if summonFrame and summonFrame.Visible == false then
+			observedSummonFlow = true
+		end
+
+		if observedRewardPopup and not isRewardPopupVisible() then
+			task.wait(0.1)
+			return
+		end
+
+		if observedSummonFlow and summonFrame and summonFrame.Visible and not isRewardPopupVisible() then
+			task.wait(0.1)
+			return
+		end
+
+		task.wait(0.1)
+	end
 end
 
 local function getSummonActionButtons()
@@ -194,6 +434,12 @@ tutorialEvents["EquipUnit"] = function(callback)
 	callback()
 end
 
+tutorialEvents["SelectUnit"] = function(callback)
+	tutorialSelectedTower = waitForUnitSelection()
+
+	callback()
+end
+
 tutorialEvents["CloseMenu"] = function(callback)
 	print('Waiting for them to close menu')
 
@@ -204,34 +450,14 @@ end
 
 
 tutorialEvents['WaitForEquipUnit'] = function(callback)
-	local conn = Instance.new('BindableEvent')
-
-	for i,v: BoolValue in Player.OwnedTowers:GetChildren() do
-		v:GetAttributeChangedSignal('EquippedSlot'):Once(function()
-			conn:Fire()
-		end)
-	end
-
-	conn.Event:Wait()
-
+	waitForTowerToEquip(tutorialSelectedTower)
+	tutorialSelectedTower = nil
 
 	callback()
 end
 
 tutorialEvents['ExitSummonArea'] = function(callback)
-
-	--repeat task.wait() until CoreGameGui.Buttons.Settings.Position == UDim2.fromScale(0.99,0.99)
-	local summonFrame = findSummonFrame()
-	while not summonFrame do
-		task.wait(0.1)
-		summonFrame = findSummonFrame()
-	end
-
-	summonFrame:GetPropertyChangedSignal('Visible'):Wait()
-
-	-- how can we wait till we finished summoning?
-	repeat task.wait() until ReplicatedStorage:FindFirstChild('SummonDone') 
-
+	waitForSummonRewardPopupToClose()
 
 	callback()
 end
@@ -252,7 +478,7 @@ tutorialEvents["FinalPlay"] = function(callback)
 end
 
 tutorialEvents["Finished"] = function(callback)
-	ReplicatedStorage.Events.Client.Tutorial:FireServer()
+	ReplicatedStorage.Events.Client.Tutorial:FireServer("begin_arena")
 	task.wait(6)
 	callback()
 end
@@ -264,12 +490,13 @@ end
 
 tutorialEvents["SummonUnit2"] = function(callback)
 	waitForSummonAction()
+	waitForSummonRewardPopupToClose()
 
 	callback()
 end
 
 tutorialEvents["Finished2"] = function(callback)
-	ReplicatedStorage.Events.Client.Tutorial:FireServer()
+	ReplicatedStorage.Events.Client.Tutorial:FireServer("complete")
 	task.wait(6)
 	callback()
 end
