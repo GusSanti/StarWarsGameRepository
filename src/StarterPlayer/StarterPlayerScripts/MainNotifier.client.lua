@@ -1,6 +1,7 @@
 local Player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ViewPortModule = require(ReplicatedStorage.Modules.ViewPortModule)
+local GradientModule = require(ReplicatedStorage.Modules.GradientsModule)
 local TweenService = game:GetService("TweenService")
 local ContentProvider = game:GetService("ContentProvider")
 local TextChatService = game:GetService("TextChatService")
@@ -257,6 +258,50 @@ local function getProfileCardRefs(profile)
 		amount = profile and profile:FindFirstChild("Amount"),
 		displayContainer = profile and (profile:FindFirstChild("Placeholder") or findDescendantByName(profile, "Placeholder")),
 	}
+end
+
+local function collectProfileRarityTargets(profileRefs)
+	if not (profileRefs and profileRefs.root) then
+		return {}
+	end
+
+	local targets = {}
+	local seen = {}
+
+	local function addTarget(target)
+		if not (target and target:IsA("GuiObject")) or seen[target] then
+			return
+		end
+
+		seen[target] = true
+		table.insert(targets, target)
+	end
+
+	local root = profileRefs.root
+	addTarget(root:FindFirstChild("Bg") or findDescendantByName(root, "Bg"))
+	addTarget(root:FindFirstChild("Background") or findDescendantByName(root, "Background"))
+	addTarget(root:FindFirstChild("Image") or findDescendantByName(root, "Image"))
+	addTarget(root:FindFirstChild("ImageGrad") or findDescendantByName(root, "ImageGrad"))
+	addTarget(root:FindFirstChild("Glow") or findDescendantByName(root, "Glow"))
+	addTarget(root:FindFirstChild("GlowEffect") or findDescendantByName(root, "GlowEffect"))
+	addTarget(root:FindFirstChild("BlurGlow") or findDescendantByName(root, "BlurGlow"))
+	addTarget(profileRefs.displayContainer)
+
+	return targets
+end
+
+local function applyProfileRarityStyle(profileRefs, entryData)
+	local rarity = entryData and entryData.rarity
+	if not rarity then
+		return
+	end
+
+	local targets = collectProfileRarityTargets(profileRefs)
+	if #targets == 0 then
+		return
+	end
+
+	GradientModule.addRarityGradient(targets, tostring(rarity), true)
 end
 
 local function getNewPopupRefs()
@@ -622,6 +667,7 @@ local function fillNewPopupProfile(profileRefs, entryData, fallbackTitle)
 	setTextValue(profileRefs.title, getRewardCardTitle(entryData, fallbackTitle))
 	setTextValue(profileRefs.name, getSummaryEntryDisplayName(entryData))
 	setTextValue(profileRefs.amount, "x" .. tostring(amount))
+	applyProfileRarityStyle(profileRefs, entryData)
 
 	if profileRefs.displayContainer and profileRefs.displayContainer:IsA("GuiObject") then
 		profileRefs.displayContainer.Visible = true

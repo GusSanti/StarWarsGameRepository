@@ -1140,10 +1140,14 @@ end)
 function SellItem(player, sellTowerList)
 	local soldEquippedTower = false
 	local totalSoldFor = 0
-	for _,tower in sellTowerList do
-		local ownedList = player.OwnedTowers:GetChildren()
+	local ownedLookup = {}
+	for _, ownedTower in ipairs(player.OwnedTowers:GetChildren()) do
+		ownedLookup[ownedTower] = true
+	end
+
+	for _,tower in ipairs(sellTowerList) do
 		local towerStats = UpgradesModule[tower.Name]
-		local validTower =  ownedList[ table.find(ownedList,tower) ]
+		local validTower = ownedLookup[tower] and tower or nil
 		if not validTower or tower:GetAttribute("Locked") == true or towerStats.Rarity == "Exclusive" then continue end
 		if validTower:GetAttribute("Equipped") then
 			soldEquippedTower = true
@@ -1152,12 +1156,14 @@ function SellItem(player, sellTowerList)
 		local refundCoin = SellAndFuseModule.RaritySellPrice[UpgradesModule[tower.Name].Rarity]
 		refundCoin += refundCoin * GetPlayerBoost(player, "Coins")
 
-		tower:Destroy()
-		player.Coins.Value += refundCoin
+		ownedLookup[validTower] = nil
+		validTower:Destroy()
 		totalSoldFor += refundCoin
 	end
 
-
+	if totalSoldFor > 0 then
+		player.Coins.Value += totalSoldFor
+	end
 
 end
 ReplicatedStorage.Events.SellItem.OnServerEvent:Connect(SellItem)

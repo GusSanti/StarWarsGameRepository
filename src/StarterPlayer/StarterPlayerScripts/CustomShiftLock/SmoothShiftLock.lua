@@ -39,6 +39,8 @@ local Camera = Workspace.CurrentCamera;
 --// Configuration
 local Config = {
 	MOBILE_SUPPORT              = true,                      --// Adds a button to toggle the shift lock for touchscreen devices
+	MOBILE_BUTTON_TITLE         = "Shift Lock",
+	MOBILE_BUTTON_RAISE_OFFSET  = 48,
 	SMOOTH_CHARACTER_ROTATION   = true,                       --// If your character should rotate smoothly or not
 	CHARACTER_ROTATION_SPEED    = 3,                          --// How quickly character rotates smoothly
 	TRANSITION_SPRING_DAMPER    = 0.7,                        --// Camera transition spring damper, test it out to see what works for you
@@ -70,6 +72,66 @@ function SmoothShiftLock.new()
 	return self;
 end;
 
+function SmoothShiftLock:_configureMobileButton()
+	if not Config.MOBILE_SUPPORT or not UserInputService.TouchEnabled then
+		return;
+	end;
+
+	pcall(function()
+		ContextActionService:SetTitle("ShiftLockSwitchAction", Config.MOBILE_BUTTON_TITLE);
+	end);
+
+	task.defer(function()
+		local MobileButton;
+		for _ = 1, 10 do
+			MobileButton = ContextActionService:GetButton("ShiftLockSwitchAction");
+			if MobileButton then
+				break;
+			end;
+			task.wait();
+		end;
+
+		if not MobileButton then
+			return;
+		end;
+
+		if not MobileButton:GetAttribute("ShiftLockMobilePositioned") then
+			local CurrentPosition = MobileButton.Position;
+			MobileButton.Position = UDim2.new(
+				CurrentPosition.X.Scale,
+				CurrentPosition.X.Offset,
+				CurrentPosition.Y.Scale,
+				CurrentPosition.Y.Offset - Config.MOBILE_BUTTON_RAISE_OFFSET
+			);
+			MobileButton:SetAttribute("ShiftLockMobilePositioned", true);
+		end;
+
+		local ActionTitle = MobileButton:FindFirstChild("ActionTitle", true);
+		if ActionTitle and ActionTitle:IsA("TextLabel") then
+			ActionTitle.Text = Config.MOBILE_BUTTON_TITLE;
+			return;
+		end;
+
+		local CustomTitle = MobileButton:FindFirstChild("ShiftLockLabel");
+		if not CustomTitle then
+			CustomTitle = Instance.new("TextLabel");
+			CustomTitle.Name = "ShiftLockLabel";
+			CustomTitle.BackgroundTransparency = 1;
+			CustomTitle.AnchorPoint = Vector2.new(0.5, 0);
+			CustomTitle.Position = UDim2.new(0.5, 0, 1, 4);
+			CustomTitle.Size = UDim2.new(1.8, 0, 0, 18);
+			CustomTitle.Font = Enum.Font.GothamBold;
+			CustomTitle.TextColor3 = Color3.fromRGB(255, 255, 255);
+			CustomTitle.TextStrokeTransparency = 0.35;
+			CustomTitle.TextScaled = true;
+			CustomTitle.ZIndex = MobileButton.ZIndex + 1;
+			CustomTitle.Parent = MobileButton;
+		end;
+
+		CustomTitle.Text = Config.MOBILE_BUTTON_TITLE;
+	end);
+end;
+
 --// [ Module Functions: ]
 function SmoothShiftLock:Enable()
 	self:_refreshCharacterVariables();
@@ -81,6 +143,7 @@ function SmoothShiftLock:Enable()
 	ContextActionService:BindActionAtPriority("ShiftLockSwitchAction", function(Name, State, Input)
 		return self:_doShiftLockSwitch(Name, State, Input);
 	end, Config.MOBILE_SUPPORT, Enum.ContextActionPriority.Medium.Value, unpack(Config.SHIFT_LOCK_KEYBINDS));
+	self:_configureMobileButton();
 
 	--// Camera Offset
 	RunService:BindToRenderStep("ShiftLockCameraUpdate", Enum.RenderPriority.Camera.Value + 1, function()
