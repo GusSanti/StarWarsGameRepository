@@ -374,7 +374,7 @@ local module = {
 		OneTimePurchase = true
 	},
 
-	['Anakin'] = {
+	['Cad Bunny Bundle'] = {
 		Id = 3591465962,
 		IsGamePass = false,
 		OneTimePurchase = true

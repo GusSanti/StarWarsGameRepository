@@ -105,7 +105,7 @@ end
 function AddAllItems()	--This function load up all the items in ItemsStats with Requirement
 
 	local function SetViewport(name, parentTo)
-		
+
 		local cloneViewport = ViewPortModule.CreateViewPort(name)
 		cloneViewport.ZIndex = 6
 		cloneViewport.Parent = parentTo

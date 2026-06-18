@@ -4,7 +4,7 @@ local DefaultIdle = ReplicatedStorage.DefaultNPCIdle
 local NPCs = {
 	workspace:WaitForChild('CodesArea'):WaitForChild('NPC'),
 	workspace:WaitForChild('Prestige'):WaitForChild('NPC'),
-	workspace:WaitForChild('Challenge'):WaitForChild('ChallengeShopZone'):WaitForChild('NPC'),
+	--workspace:WaitForChild('Challenge'):WaitForChild('ChallengeShopZone'):WaitForChild('NPC'),
 	workspace:WaitForChild('PrestigeShop'):WaitForChild('NPC'),
 	workspace:WaitForChild('IndexBox'):WaitForChild("NPC"),
 	workspace:WaitForChild('EvolutionBox'):WaitForChild('NPC'),
@@ -12,7 +12,7 @@ local NPCs = {
 	workspace:WaitForChild('JunkTrader'):WaitForChild('NPC'),
 	workspace:WaitForChild('CraftHitbox'):WaitForChild('NPC'),
 	workspace:WaitForChild('RaidShopArea'):WaitForChild('NPC'),
-	workspace:WaitForChild("EventMain"):WaitForChild("special event"):WaitForChild("Fawn"),
+	--workspace:WaitForChild("EventMain"):WaitForChild("special event"):WaitForChild("Fawn"),
 }
 
 for i,v:Model in NPCs do

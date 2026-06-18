@@ -34,31 +34,31 @@ return {
 		LastDailyQuestTime = 0,
 		LastWeeklyQuestTime = 0
 	},
-	
+
 	Quests = {
 		DailyQuests = {
 			LastRefresh = 0,
 			Quests = {},
 		},
-		
+
 		WeeklyQuests = {
 			LastRefresh = 0,
 			Quests = {},
 		},
-		
+
 		StoryQuests = {
 			Quests = {},
 		},
-		
+
 		InfiniteQuests = {
 			Quests = {},
 		},
-		
+
 		EventQuests = {
 			Quests = {},
 		},
 	},
-	
+
 	AchievementsData = {
 		Achievements = {},
 		Themes = {}
@@ -175,7 +175,7 @@ return {
 		TiersClaimed = {},
 		Quests = {},
 		LastRefresh = 0,
-		
+
 		OldBpRestore = false,
 		OldBpPremiumRestore = false,
 	},
@@ -239,7 +239,7 @@ return {
 	TutorialWin = false,
 	TutorialCompleted = false,
 	TutorialLossGemsClaimed = false,
-	
+
 	JunkTraderPoints = 0,
 	JunkPremiumPoints = 0,
 	JunkOfferings = 0,
@@ -254,7 +254,7 @@ return {
 
 
 	ClanData = require(script.ClansConfig),
-	
+
 	Variables = {
 		SeenClanSplash = false,
 	},
@@ -269,19 +269,19 @@ return {
 	ReceivedLegendary = false,
 	EventAttempts = 0,
 	EventWins = 0,
-	
+
 	EquippedAura = 'Nothing',
 	OwnedAuras = {'Nothing'},
-	
+
 	LuckyWillpower = 0,
 	ChallengeData = 0,
 	FawnEventAttempts = 0,
 	GoldenRepublicCredits = 0,
 	["Event Double Luck"] = 0,
-	
-	
+
+
 	ELO = 0, -- ranked
 	RankedPoints = 0,
-	
+
 	QuestsHidden = true,
 }

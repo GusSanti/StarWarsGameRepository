@@ -10,11 +10,6 @@ local DASH_COOLDOWN = 1
 local DASH_DURATION = 0.18
 local DASH_SPEED = 80
 local DASH_FORCE = 100000
-local DASH_SHARD_TEXTURE = "rbxassetid://8599882518"
-local DASH_SHARD_BURST = 12
-local DASH_SHARD_LIFETIME = NumberRange.new(0.18, 0.3)
-local DASH_SHARD_SPEED = NumberRange.new(14, 22)
-local DASH_SHARD_SPREAD = Vector2.new(16, 16)
 
 local lastDashTime = 0
 
@@ -49,46 +44,6 @@ local function getDashDirection(character, humanoid)
 	return rootPart and getFlatDirection(rootPart.CFrame.LookVector) or Vector3.new(0, 0, -1)
 end
 
-local function emitDashShards(rootPart, dashDirection)
-	local shardOrigin = rootPart.Position - (dashDirection * 1.5)
-	local shardAttachment = Instance.new("Attachment")
-	shardAttachment.Name = "DashShardAttachment"
-	shardAttachment.CFrame = rootPart.CFrame:ToObjectSpace(CFrame.lookAt(shardOrigin, shardOrigin + dashDirection))
-	shardAttachment.Parent = rootPart
-
-	local shardEmitter = Instance.new("ParticleEmitter")
-	shardEmitter.Name = "DashShardEmitter"
-	shardEmitter.Texture = DASH_SHARD_TEXTURE
-	shardEmitter.EmissionDirection = Enum.NormalId.Back
-	shardEmitter.Lifetime = DASH_SHARD_LIFETIME
-	shardEmitter.Speed = DASH_SHARD_SPEED
-	shardEmitter.Rate = 0
-	shardEmitter.Rotation = NumberRange.new(0, 360)
-	shardEmitter.RotSpeed = NumberRange.new(-240, 240)
-	shardEmitter.SpreadAngle = DASH_SHARD_SPREAD
-	shardEmitter.LightEmission = 0.2
-	shardEmitter.LightInfluence = 0
-	shardEmitter.Drag = 4
-	shardEmitter.VelocityInheritance = 0.1
-	shardEmitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.55),
-		NumberSequenceKeypoint.new(1, 0.05),
-	})
-	shardEmitter.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.1),
-		NumberSequenceKeypoint.new(0.75, 0.45),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	shardEmitter.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(225, 245, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 210, 255)),
-	})
-	shardEmitter.Parent = shardAttachment
-	shardEmitter:Emit(DASH_SHARD_BURST)
-
-	Debris:AddItem(shardAttachment, DASH_SHARD_LIFETIME.Max + 0.2)
-end
-
 local function dash()
 	if UserInputService:GetFocusedTextBox() then
 		return
@@ -117,18 +72,12 @@ local function dash()
 		oldDashVelocity:Destroy()
 	end
 
-	local dashDirection = getDashDirection(character, humanoid)
-	if dashDirection.Magnitude <= 0 then
-		return
-	end
-
 	local dashVelocity = Instance.new("BodyVelocity")
 	dashVelocity.Name = "DashVelocity"
 	dashVelocity.MaxForce = Vector3.new(DASH_FORCE, 0, DASH_FORCE)
 	dashVelocity.P = DASH_FORCE
-	dashVelocity.Velocity = dashDirection * DASH_SPEED
+	dashVelocity.Velocity = getDashDirection(character, humanoid) * DASH_SPEED
 	dashVelocity.Parent = rootPart
-	emitDashShards(rootPart, dashDirection)
 
 	emitDashVFX(character)
 

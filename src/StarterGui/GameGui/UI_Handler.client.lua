@@ -86,7 +86,6 @@ local listTween = nil
 local prev = nil
 local isFirstAutoOpen = false
 local pendingDailyRewardAutoOpen = false
-local dailyRewardStartupWatchdogRunning = false
 
 local function addGuiIfPresent(targetTable, gui)
 	if gui and gui:IsA("GuiObject") then
@@ -471,52 +470,6 @@ local function tryAutoOpenDailyReward(waitTimeout)
 	closeall(resolvedFrame.Name)
 	isFirstAutoOpen = false
 	return true
-end
-
-local function startDailyRewardStartupWatchdog()
-	if dailyRewardStartupWatchdogRunning then
-		return
-	end
-
-	dailyRewardStartupWatchdogRunning = true
-
-	task.spawn(function()
-		local startupDeadline = os.clock() + 45
-		local visibleWhileReadySince = nil
-
-		while os.clock() < startupDeadline do
-			if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
-				break
-			end
-
-			if not CanClaim() then
-				break
-			end
-
-			local frame = resolveDailyRewardFrame(0.25)
-			local loadingComplete = _G.LoadingScreenComplete == true
-			local streakAnimationPending = player:FindFirstChild("PlayStreakAnimation") and player.PlayStreakAnimation.Value == true
-			local startupOccupied = _G.Occupied == true
-			local readyForDaily = loadingComplete and not streakAnimationPending and not startupOccupied
-
-			if frame and frame.Visible and readyForDaily then
-				visibleWhileReadySince = visibleWhileReadySince or os.clock()
-				if os.clock() - visibleWhileReadySince >= 1 then
-					break
-				end
-			else
-				visibleWhileReadySince = nil
-
-				if readyForDaily then
-					tryAutoOpenDailyReward(0.25)
-				end
-			end
-
-			task.wait(0.5)
-		end
-
-		dailyRewardStartupWatchdogRunning = false
-	end)
 end
 
 local function getListClosedPosition()
@@ -1127,8 +1080,6 @@ task.spawn(function()
 	tryAutoOpenDailyReward(10)
 end)
 
-task.spawn(startDailyRewardStartupWatchdog)
-
 NewUI.ChildAdded:Connect(function(child)
 	if not child or not isDailyRewardMenu(child.Name) then
 		return
@@ -1137,7 +1088,6 @@ NewUI.ChildAdded:Connect(function(child)
 	task.spawn(function()
 		tryAutoOpenDailyReward(0)
 	end)
-	task.spawn(startDailyRewardStartupWatchdog)
 end)
 
 DisplayFramesOnLoad.OnClientEvent:Connect(function(name)
@@ -1148,7 +1098,6 @@ DisplayFramesOnLoad.OnClientEvent:Connect(function(name)
 	task.spawn(function()
 		tryAutoOpenDailyReward(10)
 	end)
-	task.spawn(startDailyRewardStartupWatchdog)
 end)
 
 for i, v in buttons do

@@ -1,8 +1,3 @@
--- Legacy merchant runner disabled. The active Galactic Market flow lives in ../daniTravelingMerchant.server.lua.
-if true then
-	return
-end
-
 local RS = game:GetService("ReplicatedStorage")
 local ItemStatsModule = require(RS:WaitForChild("ItemStats"))
 local TravelingMerchant = workspace.TravelingMerchant:WaitForChild("Merchant")
@@ -11,7 +6,6 @@ local ClosedSign = workspace.TravelingMerchant:WaitForChild("ClosedSign")
 --local Salesman = workspace.TravelingMerchant:WaitForChild("Object_3")
 local GetItemModule = require(RS.Modules.GetItemModel)
 local BalanceConfig = require(RS.BalanceConfig)
-local GalacticMarketConfig = BalanceConfig.GalacticMarket or {DefaultStock = 1}
 local latestUpdatedHour = 0
 
 function GetSellableItems()
@@ -143,7 +137,7 @@ function Update()
 end
 
 local function getMerchantStock(itemStats)
-	return math.max(1, tonumber(itemStats.MerchantQuantity) or GalacticMarketConfig.DefaultStock or 1)
+	return math.max(1, tonumber(itemStats.MerchantQuantity) or BalanceConfig.GalacticMarket.DefaultStock or 1)
 end
 
 function BuyRequest(player,itemName)
@@ -176,15 +170,15 @@ function BuyRequest(player,itemName)
 		player[priceType].Value -= priceAmount
 		player.TraitPoint.Value += TraitPointsNumber
 	else
-        player[priceType].Value -= priceAmount
-        
-        if player.Items[itemName].Value < 0 then -- just to patch a holocron bug
-            player.Items[itemName].Value = 0
-        end
-        
+		player[priceType].Value -= priceAmount
+
+		if player.Items[itemName].Value < 0 then -- just to patch a holocron bug
+			player.Items[itemName].Value = 0
+		end
+
 		player.Items[itemName].Value += 1
 	end
-	
+
 	--TravelingMerchant.Items[itemName]:Destroy()
 	if not boughtValue then
 		boughtValue = Instance.new("NumberValue")

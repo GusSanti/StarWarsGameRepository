@@ -321,12 +321,13 @@ if game:GetService("RunService"):IsClient() then
 	end
 
 	function UIHandler.Transition(inf)
+		print("called")
 		local Player = Players.LocalPlayer
 		local PlayerGUI = Player:WaitForChild("PlayerGui")
-		local GameGUI = PlayerGUI:WaitForChild("GameGui")
+		local Blackout = PlayerGUI:WaitForChild("Blackout")
 
 		local parentFrame = script.Main:Clone()
-		parentFrame.Parent = GameGUI.Transition
+		parentFrame.Parent = Blackout.Transition
 
 		local uiList = createTransitionSquares(parentFrame)
 

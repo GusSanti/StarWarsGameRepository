@@ -55,14 +55,14 @@ BuyTravelingMerchantItem.OnServerInvoke = function( Player : Player , ItemName :
 		Player.TraitPoint.Value += TraitPointsNumber
 	else
 		local SpecificItem = Player.Items[ItemName]
-		
-		
+
+
 		if SpecificItem.Value < 0 then
 			SpecificItem.Value = 0
 		end
-		
+
 		SpecificItem.Value += 1	
-		
+
 	end
 	--
 	if not BoughtValue then
@@ -84,13 +84,13 @@ local find = table.find
 local floor = math.floor
 
 local function GetSellableItems()
-	
-	
-	
+
+
+
 	local List = {}
-	
+
 	--insert(List, "LuckySpins")
-	
+
 	for __ , Info in ItemStatsModule do
 		if Info.InMerchant then
 			insert( List , Info )
@@ -103,14 +103,14 @@ local function GetNewSetOfItemStats( UniqueSeed )
 	local rng = Random.new( UniqueSeed )
 	local NewList = {}
 	local SellableItems = GetSellableItems()
-	
+
 	while #NewList < 3 do
 		local NewItemIndex = rng:NextInteger( 1 , #SellableItems )
-		
+
 		--if NewItemIndex == "LuckySpins" then
-			
+
 		--end
-		
+
 		if not find( NewList , SellableItems[NewItemIndex] ) then
 			insert( NewList , SellableItems[NewItemIndex] )
 		end
@@ -151,9 +151,9 @@ while task.wait( 1 ) do
 		for Index , ItemStats in GetNewSetOfItemStats( CurrentQuarter ) do
 			local ItemClone = GetItemModule[ItemStats.Name]
 			if not ItemClone then continue end
-			
+
 			ItemClone = ItemClone:Clone()
-			
+
 			local PrimaryPart = ItemClone.PrimaryPart
 			if not PrimaryPart then
 				continue

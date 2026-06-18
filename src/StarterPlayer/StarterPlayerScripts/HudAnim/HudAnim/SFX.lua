@@ -54,7 +54,7 @@ end
 
 function SFX.play_for(inst, key)
 	--if SoundController.IsSFXMuted() then return end
-	
+
 	local id = inst:GetAttribute(key) or defaults[key] or ""
 	if id == "" or id == "rbxassetid://0" then return end
 	local s = get(id)

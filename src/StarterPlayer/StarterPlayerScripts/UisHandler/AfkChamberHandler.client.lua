@@ -17,9 +17,9 @@ local function ApplyMythicalChanceText()
 	for _, descendant in ConfirmationFrame:GetDescendants() do
 		if descendant:IsA("TextLabel") and (
 			descendant.Name == "Chance"
-			or descendant.Name == "DropChance"
-			or descendant.Name == "MythicalChance"
-		) then
+				or descendant.Name == "DropChance"
+				or descendant.Name == "MythicalChance"
+			) then
 			descendant.Text = chanceText
 		end
 	end

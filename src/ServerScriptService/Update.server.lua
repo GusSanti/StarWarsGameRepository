@@ -50,5 +50,5 @@ ReplicatedStorage.Events.Client.UpdatePoints.OnServerEvent:Connect(function(play
 	elseif action == "subtract" then
 		points.Value -= combinedPoints
 	end
-	
+
 end)

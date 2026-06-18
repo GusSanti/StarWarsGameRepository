@@ -35,6 +35,7 @@ local Spring = require(script:WaitForChild("Spring"));
 local LocalPlayer = Players.LocalPlayer;
 local PlayerMouse = LocalPlayer:GetMouse();
 local Camera = Workspace.CurrentCamera;
+local MOBILE_ACTION_NAME = "ShiftLockSwitchAction";
 
 --// Configuration
 local Config = {
@@ -72,19 +73,93 @@ function SmoothShiftLock.new()
 	return self;
 end;
 
+function SmoothShiftLock:_getRaisedMobileButtonPosition(basePosition: UDim2): UDim2
+	return UDim2.new(
+		basePosition.X.Scale,
+		basePosition.X.Offset,
+		basePosition.Y.Scale,
+		basePosition.Y.Offset - Config.MOBILE_BUTTON_RAISE_OFFSET
+	);
+end;
+
+function SmoothShiftLock:_applyMobileButtonPosition(mobileButton: GuiObject)
+	if not self._mobileButtonTargetPosition then
+		self._mobileButtonTargetPosition = self:_getRaisedMobileButtonPosition(mobileButton.Position);
+	end;
+
+	pcall(function()
+		ContextActionService:SetPosition(MOBILE_ACTION_NAME, self._mobileButtonTargetPosition);
+	end);
+
+	if mobileButton.Position ~= self._mobileButtonTargetPosition then
+		mobileButton.Position = self._mobileButtonTargetPosition;
+	end;
+end;
+
+function SmoothShiftLock:_updateMobileButtonTitle(mobileButton: GuiObject)
+	local ActionTitle = mobileButton:FindFirstChild("ActionTitle", true);
+	if ActionTitle and ActionTitle:IsA("TextLabel") then
+		ActionTitle.Text = Config.MOBILE_BUTTON_TITLE;
+		return;
+	end;
+
+	local CustomTitle = mobileButton:FindFirstChild("ShiftLockLabel");
+	if not CustomTitle then
+		CustomTitle = Instance.new("TextLabel");
+		CustomTitle.Name = "ShiftLockLabel";
+		CustomTitle.BackgroundTransparency = 1;
+		CustomTitle.AnchorPoint = Vector2.new(0.5, 0);
+		CustomTitle.Position = UDim2.new(0.5, 0, 1, 4);
+		CustomTitle.Size = UDim2.new(1.8, 0, 0, 18);
+		CustomTitle.Font = Enum.Font.GothamBold;
+		CustomTitle.TextColor3 = Color3.fromRGB(255, 255, 255);
+		CustomTitle.TextStrokeTransparency = 0.35;
+		CustomTitle.TextScaled = true;
+		CustomTitle.ZIndex = mobileButton.ZIndex + 1;
+		CustomTitle.Parent = mobileButton;
+	end;
+
+	CustomTitle.Text = Config.MOBILE_BUTTON_TITLE;
+end;
+
+function SmoothShiftLock:_ensureCustomMobileButton(templateButton: GuiObject): GuiObject
+	if self._customMobileButton and self._customMobileButton.Parent then
+		return self._customMobileButton;
+	end;
+
+	local CustomButton = templateButton:Clone();
+	CustomButton.Name = "ShiftLockCustomMobileButton";
+	CustomButton.Visible = true;
+	CustomButton.Active = true;
+	CustomButton.Parent = templateButton.Parent;
+
+	if CustomButton:IsA("ImageButton") then
+		CustomButton.AutoButtonColor = false;
+		CustomButton.HoverImage = CustomButton.Image;
+		CustomButton.PressedImage = CustomButton.Image;
+	end;
+
+	self._runtimeMaid:GiveTask(CustomButton.Activated:Connect(function()
+		self:ToggleShiftLock();
+	end));
+
+	self._customMobileButton = CustomButton;
+	return CustomButton;
+end;
+
 function SmoothShiftLock:_configureMobileButton()
 	if not Config.MOBILE_SUPPORT or not UserInputService.TouchEnabled then
 		return;
 	end;
 
 	pcall(function()
-		ContextActionService:SetTitle("ShiftLockSwitchAction", Config.MOBILE_BUTTON_TITLE);
+		ContextActionService:SetTitle(MOBILE_ACTION_NAME, Config.MOBILE_BUTTON_TITLE);
 	end);
 
 	task.defer(function()
 		local MobileButton;
 		for _ = 1, 10 do
-			MobileButton = ContextActionService:GetButton("ShiftLockSwitchAction");
+			MobileButton = ContextActionService:GetButton(MOBILE_ACTION_NAME);
 			if MobileButton then
 				break;
 			end;
@@ -95,40 +170,17 @@ function SmoothShiftLock:_configureMobileButton()
 			return;
 		end;
 
-		if not MobileButton:GetAttribute("ShiftLockMobilePositioned") then
-			local CurrentPosition = MobileButton.Position;
-			MobileButton.Position = UDim2.new(
-				CurrentPosition.X.Scale,
-				CurrentPosition.X.Offset,
-				CurrentPosition.Y.Scale,
-				CurrentPosition.Y.Offset - Config.MOBILE_BUTTON_RAISE_OFFSET
-			);
-			MobileButton:SetAttribute("ShiftLockMobilePositioned", true);
-		end;
+		self:_applyMobileButtonPosition(MobileButton);
+		self:_updateMobileButtonTitle(MobileButton);
 
-		local ActionTitle = MobileButton:FindFirstChild("ActionTitle", true);
-		if ActionTitle and ActionTitle:IsA("TextLabel") then
-			ActionTitle.Text = Config.MOBILE_BUTTON_TITLE;
-			return;
-		end;
+		local CustomButton = self:_ensureCustomMobileButton(MobileButton);
+		CustomButton.Position = self._mobileButtonTargetPosition;
+		CustomButton.Size = MobileButton.Size;
+		CustomButton.AnchorPoint = MobileButton.AnchorPoint;
+		self:_updateMobileButtonTitle(CustomButton);
 
-		local CustomTitle = MobileButton:FindFirstChild("ShiftLockLabel");
-		if not CustomTitle then
-			CustomTitle = Instance.new("TextLabel");
-			CustomTitle.Name = "ShiftLockLabel";
-			CustomTitle.BackgroundTransparency = 1;
-			CustomTitle.AnchorPoint = Vector2.new(0.5, 0);
-			CustomTitle.Position = UDim2.new(0.5, 0, 1, 4);
-			CustomTitle.Size = UDim2.new(1.8, 0, 0, 18);
-			CustomTitle.Font = Enum.Font.GothamBold;
-			CustomTitle.TextColor3 = Color3.fromRGB(255, 255, 255);
-			CustomTitle.TextStrokeTransparency = 0.35;
-			CustomTitle.TextScaled = true;
-			CustomTitle.ZIndex = MobileButton.ZIndex + 1;
-			CustomTitle.Parent = MobileButton;
-		end;
-
-		CustomTitle.Text = Config.MOBILE_BUTTON_TITLE;
+		MobileButton.Visible = false;
+		MobileButton.Active = false;
 	end);
 end;
 
@@ -140,7 +192,7 @@ function SmoothShiftLock:Enable()
 	end));
 
 	--// Bind Keybinds
-	ContextActionService:BindActionAtPriority("ShiftLockSwitchAction", function(Name, State, Input)
+	ContextActionService:BindActionAtPriority(MOBILE_ACTION_NAME, function(Name, State, Input)
 		return self:_doShiftLockSwitch(Name, State, Input);
 	end, Config.MOBILE_SUPPORT, Enum.ContextActionPriority.Medium.Value, unpack(Config.SHIFT_LOCK_KEYBINDS));
 	self:_configureMobileButton();
@@ -165,12 +217,12 @@ end;
 function SmoothShiftLock:Disable()
 	self._runtimeMaid:DoCleaning();
 	self._shiftlockMaid:DoCleaning();
-	
+
 	--// Unbind Camera Update
 	RunService:UnbindFromRenderStep("ShiftLockCameraUpdate")
 
 	--// Unbind Keybinds
-	ContextActionService:UnbindAction("ShiftLockSwitchAction");
+	ContextActionService:UnbindAction(MOBILE_ACTION_NAME);
 end;
 
 --// [ Internal Functions: ]

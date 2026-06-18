@@ -16,9 +16,9 @@ repeat task.wait() until _G.LoadingScreenComplete or _G.GameLoaded
 local originalFOV = workspace.Camera.FieldOfView
 local newFOV = 90
 
-	local function tween(obj, length, details)
-		TweenService:Create(obj, TweenInfo.new(length), details):Play()
-	end
+local function tween(obj, length, details)
+	TweenService:Create(obj, TweenInfo.new(length), details):Play()
+end
 
 local Streak = Player.Streak.Value
 
@@ -45,7 +45,7 @@ local function fadeIn(obj)
 	else
 		tween(obj, fadeInTime, {TextTransparency = 0})
 	end
-	
+
 	tween(obj.UIStroke, fadeInTime, {Transparency = 0})
 end
 
@@ -55,13 +55,13 @@ local function fadeOut(obj, noPos)
 		val.Name = 'OriginalPositionX'
 		val.Value = obj.Position.X.Scale
 		val.Parent = obj
-		
+
 		local val = Instance.new('NumberValue')
 		val.Name = 'OriginalPositionY'
 		val.Value = obj.Position.Y.Scale
 		val.Parent = obj
 	end
-	
+
 	if not noPos then
 		local newPos = UDim2.fromScale(obj.Position.X.Scale, obj.Position.Y.Scale - offsetVal)
 
@@ -69,7 +69,7 @@ local function fadeOut(obj, noPos)
 	else
 		tween(obj, fadeOutTime, {TextTransparency = 1})
 	end
-	
+
 	tween(obj.UIStroke, fadeOutTime, {Transparency = 1})
 end
 
@@ -85,7 +85,7 @@ local function expandOut(obj)
 		val.Value = obj.Size.Y.Scale
 		val.Parent = obj
 	end
-	
+
 	if obj:IsA('ImageLabel') then
 		tween(obj, fadeOutTime, {Size = UDim2.fromScale(obj.Size.X.Scale/2, obj.Size.Y.Scale/2), ImageTransparency = 1})
 	else
@@ -125,13 +125,13 @@ local function playAnimation()
 	_G.Occupied = true
 	--UIHandler.DisableAllButtons({'Exp_Frame','Units_Bar',"Currency","Level","SummonFrame"})
 	UIHandler.DisableAllButtons()
-	
+
 	if Streak ~= 0 then
-		
+
 		StreakUp:Play()
-		
+
 		local FireIcon = script.Parent.FireMain.FireIcon
-		
+
 		if Streak == 1 then -- day 1
 			FireIcon.Container.CurrentFire.Text = Streak
 			expandIn(FireIcon)
@@ -160,14 +160,14 @@ local function playAnimation()
 			end
 			tween(StreakBlur, fadeInTime, {Size = 24})
 			tween(workspace.Camera, fadeInTime, {FieldOfView = newFOV})
-			
-			
+
+
 			task.wait(.5)
 			-- tween the numbers
 
 			tween(FireIcon.Container.CurrentFire, numberSwitchTime, {Position = UDim2.fromScale(0.5,2)})
 			tween(FireIcon.Container.NewFire, numberSwitchTime, {Position = UDim2.fromScale(0.5,1)})
-			
+
 			script.Parent.FireMain.YouStarted.Text = 'Streak Up!'
 			for i,v in script.Parent.FireMain:GetChildren() do
 				if v:IsA('TextLabel') then
@@ -176,8 +176,8 @@ local function playAnimation()
 				end
 			end
 		end
-		
-		
+
+
 		task.wait(3)
 
 		expandOut(script.Parent.FireMain.FireIcon)
@@ -194,17 +194,17 @@ local function playAnimation()
 				fadeOut(v)
 			end
 		end
-		
+
 		task.delay(fadeOutTime, function()
 			tween(FireIcon.Container.CurrentFire, numberSwitchTime, {Position = UDim2.fromScale(0.5,1)})
 			tween(FireIcon.Container.NewFire, numberSwitchTime, {Position = UDim2.fromScale(0.5,0)})
 		end)
 	end
-	
+
 	ResetStreakAnimation:FireServer()
 	_G.Occupied = false
 	UIHandler.EnableAllButtons()
-	
+
 	AvatarEditorService:PromptSetFavorite(game.PlaceId, Enum.AvatarItemType.Asset, true)
 end
 

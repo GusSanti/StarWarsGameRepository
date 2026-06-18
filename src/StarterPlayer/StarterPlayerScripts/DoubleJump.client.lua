@@ -111,7 +111,7 @@ local function emitDashDoubleJumpVFX(targetCharacter)
 	end
 
 	if DashCachedVFXPart and DashCachedVFXPart:FindFirstChild("Weld") then
-		DashCachedVFXPart.Weld.C0 = (DashBaseC0 or CFrame.new()) * CFrame.new(0, 0, 1) * CFrame.Angles(math.rad(90), 0, 0)
+		DashCachedVFXPart.Weld.C0 = (DashBaseC0 or CFrame.new()) * CFrame.new(0, 0, 1) * CFrame.Angles(math.rad(90), math.rad(90), 0)
 	end
 
 	for __ , ParticleEmitter : ParticleEmitter in emitters do

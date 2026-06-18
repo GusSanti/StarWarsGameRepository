@@ -478,8 +478,8 @@ function module.ProcessReceipt(ReceiptInfo)
 		--else
 		--	functionSuccess, functionResult = pcall(RunFunction, ReceiptInfo, targetPlayer)
 		--end
-		
-		
+
+
 		local functionSuccess, functionResult 
 		local targetPlayer = IsGift and GiftPlayer or Player
 		local rewardSnapshotBefore = capturePurchaseRewardState(targetPlayer)
@@ -524,9 +524,9 @@ function module.ProcessReceipt(ReceiptInfo)
 		end)
 
 		warn("Purchase processed successfully")
-		
-		
-		
+
+
+
 
 		if not functionSuccess or not functionResult then
 			warn(`Purchase Function Failed: {functionResult}`)

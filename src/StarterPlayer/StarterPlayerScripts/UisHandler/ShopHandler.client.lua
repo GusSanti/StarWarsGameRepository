@@ -65,22 +65,22 @@ local BundleConfigs = {
 		},
 	},
 	["2"] = {
-		MarketName = "Anakin",
-		Title = "Anakin!",
+		MarketName = "Cad Bunny Bundle",
+		Title = "Cad Bunny!",
 		MainPreview = {
 			Type = "Viewport",
-			Name = "Anikin Armor",
+			Name = "Cad Bunny",
 		},
 		Slots = {
 			[1] = {
 				Type = "Viewport",
-				Name = "Anikin Armor",
-				Label = "Anakin",
+				Name = "Cad Bunny",
+				Label = "Cad Bunny",
 			},
 			[2] = {
 				Type = "Viewport",
-				Name = "Anikin Armor",
-				Label = "Anakin",
+				Name = "Cad Bunny",
+				Label = "Cad Bunny",
 				ShowBackground = true,
 			},
 			[3] = {

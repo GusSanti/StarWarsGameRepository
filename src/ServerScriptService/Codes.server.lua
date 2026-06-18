@@ -7,46 +7,46 @@ local RequestRedeemCodes = ReplicatedStorage:WaitForChild("Functions").RequestRe
 local DataRestoreCode = {"Inventory", "InventoryV2"}
 
 local function InRedeem(player, code: string)
-    if not player:FindFirstChild('DataLoaded') then return end
-    
-    
+	if not player:FindFirstChild('DataLoaded') then return end
+
+
 	local foundKey = nil
-	
+
 	for i,v in pairs(Codes) do
 		if string.upper(code) == string.upper(i) then
 			foundKey = i
 			code = i
 		end
-    end
-	
-    if foundKey then
-        --if player.Prestige.Value == 0 and player.PlayerLevel.Value < 3 then
-        --    ReplicatedStorage.Events.Client.Message:FireClient(player, "You must reach level 3 first to redeem this code!", Color3.fromRGB(255,0,0))
-        --    return
-        --end
-        
-        local auxRedeemed = player.Codes:FindFirstChild('One') or player.Codes:FindFirstChild('Chosen')
-        local redeemed = player.Codes:FindFirstChild(code)
-        
-        if not player.Codes:FindFirstChild('One') or not player.Codes:FindFirstChild('Chosen') then
-            local codeVal = Instance.new("StringValue")
-            codeVal.Name = 'RedeemedCompensation'
-            codeVal.Parent = player.Codes
-        end
-        
-        
-        if code == 'Compensation' and auxRedeemed and not player.Codes:FindFirstChild('RedeemedCompensation') then
-            local codeVal = Instance.new("StringValue")
-            codeVal.Name = 'RedeemedCompensation'
-            codeVal.Parent = player.Codes
+	end
+
+	if foundKey then
+		--if player.Prestige.Value == 0 and player.PlayerLevel.Value < 3 then
+		--    ReplicatedStorage.Events.Client.Message:FireClient(player, "You must reach level 3 first to redeem this code!", Color3.fromRGB(255,0,0))
+		--    return
+		--end
+
+		local auxRedeemed = player.Codes:FindFirstChild('One') or player.Codes:FindFirstChild('Chosen')
+		local redeemed = player.Codes:FindFirstChild(code)
+
+		if not player.Codes:FindFirstChild('One') or not player.Codes:FindFirstChild('Chosen') then
+			local codeVal = Instance.new("StringValue")
+			codeVal.Name = 'RedeemedCompensation'
+			codeVal.Parent = player.Codes
+		end
 
 
-            player.Gems.Value += 1000
-            MessageEvent:FireClient(player,`Compensated with 1000 gems, sorry :(`,Color3.fromRGB(47, 255, 15),true)
-            return true
-        elseif code == 'Compensation' and player.Codes:FindFirstChild('RedeemedCompensation') then
-            return "Already Redeemed or Unavailable"
-        end
+		if code == 'Compensation' and auxRedeemed and not player.Codes:FindFirstChild('RedeemedCompensation') then
+			local codeVal = Instance.new("StringValue")
+			codeVal.Name = 'RedeemedCompensation'
+			codeVal.Parent = player.Codes
+
+
+			player.Gems.Value += 1000
+			MessageEvent:FireClient(player,`Compensated with 1000 gems, sorry :(`,Color3.fromRGB(47, 255, 15),nil,true)
+			return true
+		elseif code == 'Compensation' and player.Codes:FindFirstChild('RedeemedCompensation') then
+			return "Already Redeemed or Unavailable"
+		end
 
 
 		if Codes[code] then
@@ -57,14 +57,14 @@ local function InRedeem(player, code: string)
 					return "Expired"
 				end
 			end
-			
+
 			if redeemed then
 				return "Already Redeemed"
 			end
-			
+
 			if Codes[code]['Required Rank'] then
 				local PlayerRoleInGroup = player:GetRoleInGroup(35339513)
-				
+
 				if PlayerRoleInGroup == Codes[code]['Required Rank'] then
 					for _,codeInfo in Codes[code].Rewards do
 
@@ -73,13 +73,13 @@ local function InRedeem(player, code: string)
 							MessageEvent:FireClient(player,`You Got {codeInfo.Value}`)
 						elseif codeInfo.Type == "RaidAttempt" then
 							player.RaidLimitData.Attempts.Value += codeInfo.Value
-							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Raid Attempt`,Color3.fromRGB(47, 255, 15),true)
+							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Raid Attempt`,Color3.fromRGB(47, 255, 15),nil,true)
 						elseif codeInfo.Type == 'Junk Offering' then
 							player.Items['Junk Offering'].Value += codeInfo.Value
-							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Junk Offering`,Color3.fromRGB(47, 255, 15),true)
+							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Junk Offering`,Color3.fromRGB(47, 255, 15),nil,true)
 						else
 							player[codeInfo.Type].Value += codeInfo.Value
-							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} {codeInfo.Type}`,Color3.fromRGB(47, 255, 15),true)
+							MessageEvent:FireClient(player,`You Got +{codeInfo.Value} {codeInfo.Type}`,Color3.fromRGB(47, 255, 15),nil,true)
 						end
 					end
 
@@ -91,7 +91,7 @@ local function InRedeem(player, code: string)
 					return "Insufficient Rank to redeem this"
 				end
 			end
-			
+
 
 			if redeemed then
 				return "Already Redeemed"
@@ -104,13 +104,13 @@ local function InRedeem(player, code: string)
 						MessageEvent:FireClient(player,`You Got {codeInfo.Value}`)
 					elseif codeInfo.Type == "RaidAttempt" then
 						player.RaidLimitData.Attempts.Value += codeInfo.Value
-						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Raid Attempt`,Color3.fromRGB(47, 255, 15),true)
+						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Raid Attempt`,Color3.fromRGB(47, 255, 15),nil,true)
 					elseif codeInfo.Type == 'Junk Offering' then
 						player.Items['Junk Offering'].Value += codeInfo.Value
-						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Junk Offering`,Color3.fromRGB(47, 255, 15),true)
+						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} Junk Offering`,Color3.fromRGB(47, 255, 15),nil,true)
 					else
 						player[codeInfo.Type].Value += codeInfo.Value
-						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} {codeInfo.Type}`,Color3.fromRGB(47, 255, 15),true)
+						MessageEvent:FireClient(player,`You Got +{codeInfo.Value} {codeInfo.Type}`,Color3.fromRGB(47, 255, 15),nil,true)
 					end
 				end
 

@@ -43,7 +43,7 @@ local Functions = {
 		local NewUnit = Epic[random]		
 		return NewUnit
 	end,
-	
+
 	["Legendary Unit"] = function ()
 		local Legendary = {}
 		local LegendaryUnits = ReplicatedStorage.Upgrades.Legendary
@@ -54,7 +54,7 @@ local Functions = {
 		local NewUnit = Legendary[random]		
 		return NewUnit
 	end,
-	
+
 	["Mythic Unit"] = function ()
 		local Mythic = {"Kit Fishto", "Dart Raiven", "Wisest Jedai", "Hired Killer","Commander Codi 222th","Count", "Dart Mol", "Jedai Kenobi", "Lyk Skaivoker", "Mace Vindy", "Plooo", "Wisest Jedai"} 	
 		local random = math.random(1, #Mythic)
@@ -110,8 +110,8 @@ function DailyRewards.Claim(player)
 	player.DailyRewards.NextClaim.Value = nextClaim + 1
 	player.DailyRewards.LastClaimTime.Value = currentTime
 
-	
-	
+
+
 	if UnitClaimed then
 		Debounce = false
 		return true, Unit, Rarity_

@@ -44,7 +44,7 @@ cas:BindAction("Sprint", function(_, inputState, inputObject)
 	end
 end, true, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonR2)
 
-cas:SetTitle("Sprint", "Sprint")
+cas:SetImage("Sprint", "rbxassetid://87923923453229")
 cas:SetPosition("Sprint", UDim2.new(1, -170,0, 100))
 
 game:GetService("RunService").RenderStepped:Connect(function()

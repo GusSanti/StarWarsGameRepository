@@ -1029,7 +1029,7 @@ end)
 
 local debounce = false
 local dictionaryFolders = {}
-local TUTORIAL_LOBBY_REENTRY_STEP = 9
+local TUTORIAL_LOBBY_REENTRY_STEP = 8
 
 local function prepareTutorialStateForSave(player)
 	local tutorialStarted = player:FindFirstChild("TutorialStarted")
@@ -1140,14 +1140,10 @@ end)
 function SellItem(player, sellTowerList)
 	local soldEquippedTower = false
 	local totalSoldFor = 0
-	local ownedLookup = {}
-	for _, ownedTower in ipairs(player.OwnedTowers:GetChildren()) do
-		ownedLookup[ownedTower] = true
-	end
-
-	for _,tower in ipairs(sellTowerList) do
+	for _,tower in sellTowerList do
+		local ownedList = player.OwnedTowers:GetChildren()
 		local towerStats = UpgradesModule[tower.Name]
-		local validTower = ownedLookup[tower] and tower or nil
+		local validTower =  ownedList[ table.find(ownedList,tower) ]
 		if not validTower or tower:GetAttribute("Locked") == true or towerStats.Rarity == "Exclusive" then continue end
 		if validTower:GetAttribute("Equipped") then
 			soldEquippedTower = true
@@ -1156,14 +1152,12 @@ function SellItem(player, sellTowerList)
 		local refundCoin = SellAndFuseModule.RaritySellPrice[UpgradesModule[tower.Name].Rarity]
 		refundCoin += refundCoin * GetPlayerBoost(player, "Coins")
 
-		ownedLookup[validTower] = nil
-		validTower:Destroy()
+		tower:Destroy()
+		player.Coins.Value += refundCoin
 		totalSoldFor += refundCoin
 	end
 
-	if totalSoldFor > 0 then
-		player.Coins.Value += totalSoldFor
-	end
+
 
 end
 ReplicatedStorage.Events.SellItem.OnServerEvent:Connect(SellItem)

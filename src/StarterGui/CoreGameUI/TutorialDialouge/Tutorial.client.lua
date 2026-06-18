@@ -35,7 +35,7 @@ local GetUnits = ReplicatedStorage:WaitForChild("GetUnitsButton")
 local LOBBY_REENTRY_STEP = 9
 local DEFAULT_FOCUS_PADDING = Vector2.new(20, 20)
 local DEFAULT_FOCUS_MIN_SIZE = Vector2.new(96, 96)
-local TUTORIAL_FOCUS_OFFSET_Y = 18
+local TUTORIAL_FOCUS_OFFSET_Y = 53
 local TUTORIAL_FOCUS_OUTLINE_COLOR = Color3.fromRGB(80, 170, 255)
 
 local textThread = nil

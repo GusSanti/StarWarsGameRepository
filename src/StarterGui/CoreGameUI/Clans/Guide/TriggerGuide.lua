@@ -153,18 +153,18 @@ function module.toggle(state)
 						module.fadeIn(v)
 					end
 				end
-				
+
 				task.wait(1)
 				countTracker += 1
 			end
 		end
-		
+
 		task.wait(0.5)
 		module.fadeIn(script.Parent.Continue)
-		
+
 		local Bindable = Instance.new('BindableEvent')
 		script.Parent.Parent.ClansFrame.Interactable = false
-		
+
 		local conn1 = UserInputService.InputBegan:Connect(function(inpVal, gp)
 			if not gp then
 				if inpVal.UserInputType == Enum.UserInputType.MouseButton1 or inpVal.UserInputType == Enum.UserInputType.Touch then
@@ -173,14 +173,14 @@ function module.toggle(state)
 				end
 			end
 		end)
-		
+
 		Bindable.Event:Wait()
-		
+
 		script.Parent.Parent.ClansFrame.Interactable = true
 		conn1:Disconnect()
 		conn1 = nil
 		Bindable:Destroy()
-		
+
 		module.toggle(false)
 	else
 		-- Disable
@@ -195,7 +195,7 @@ function module.toggle(state)
 				end
 			end
 		end
-		
+
 		module.fadeOut(script.Parent.Continue)
 		tween(script.Parent, fadeOutTime, {BackgroundTransparency = 1})
 		task.wait(fadeOutTime)

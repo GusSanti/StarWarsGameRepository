@@ -204,15 +204,15 @@ end
 
 elevator.Door.Touched:Connect(function(part)
 	local player = Players:GetPlayerFromCharacter(part.Parent)
-    local isWaiting = table.find(playersWaiting, player)
-        
-    if player then
-        if script.Parent.Players:FindFirstChild(player.Name) then
-            return
-        end
+	local isWaiting = table.find(playersWaiting, player)
 
-        print('---------------')
-        print('xo1')
+	if player then
+		if script.Parent.Players:FindFirstChild(player.Name) then
+			return
+		end
+
+		print('---------------')
+		print('xo1')
 		local value = AllFunc.HaveEquipUnits(player)
 		if not value then
 			if not WasMessage  then
@@ -226,7 +226,7 @@ elevator.Door.Touched:Connect(function(part)
 			return
 		end
 
-        print('xo2')
+		print('xo2')
 
 		local playerData = player
 
@@ -235,34 +235,34 @@ elevator.Door.Touched:Connect(function(part)
 			requiredLevel = #StoryModeStats.LevelName[StoryModeStats.Worlds[script.Parent.World.Value]]
 		end
 
-        local checks = {
-            gotPlayer = player,
-            notWaiting = not isWaiting,
-            isElevatorFull = #playersWaiting < config.MaxPlayers.Value,
-            notMoving = not moving,
-            notLocked = not script.Parent.Locked.Value,
-            appropriateTiem = tick()-1 > timeExited,
-        }
-        
-        local allGood = true
-        
-        --for i,v in pairs(checks) do
-        --    if v then
-        --        continue
-        --    else
-        --        print('One check was not fulfilled:')
-        --        warn(i)
-        --        print('Got value:')
-        --        warn(v)
-        --    end
-        --end
+		local checks = {
+			gotPlayer = player,
+			notWaiting = not isWaiting,
+			isElevatorFull = #playersWaiting < config.MaxPlayers.Value,
+			notMoving = not moving,
+			notLocked = not script.Parent.Locked.Value,
+			appropriateTiem = tick()-1 > timeExited,
+		}
+
+		local allGood = true
+
+		--for i,v in pairs(checks) do
+		--    if v then
+		--        continue
+		--    else
+		--        print('One check was not fulfilled:')
+		--        warn(i)
+		--        print('Got value:')
+		--        warn(v)
+		--    end
+		--end
 
 
 		if allGood and
 			(playerData.StoryProgress.World.Value > script.Parent.World.Value or (playerData.StoryProgress.World.Value == script.Parent.World.Value and playerData.StoryProgress.Level.Value >= requiredLevel)) and
-            (script.Parent.FriendsOnly.Value == false or (script.Parent.FriendsOnly.Value == true and player:IsFriendsWith(Players[script.Parent.Owner.Value].UserId))) then
-            print('WE IN!')
-            
+			(script.Parent.FriendsOnly.Value == false or (script.Parent.FriendsOnly.Value == true and player:IsFriendsWith(Players[script.Parent.Owner.Value].UserId))) then
+			print('WE IN!')
+
 			table.insert(playersWaiting, player)
 			local plrval = Instance.new("StringValue")
 			plrval.Name = player.Name
@@ -309,7 +309,7 @@ elevatorEvent.OnServerEvent:Connect(function(player)
 				v:Destroy()
 			end
 		end
-		
+
 		ReplicatedStorage.Remotes.Elevator.LeavingElevator:FireClient(player)
 
 		if player.Name == script.Parent.Owner.Value then

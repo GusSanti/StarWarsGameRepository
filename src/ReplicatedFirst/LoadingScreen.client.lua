@@ -14,6 +14,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -28,6 +29,7 @@ local SkipButton = WorldImage:WaitForChild("SkipButton")
 local ForceLoad = false
 local Finished = false
 local AssetsLoaded = false
+local Controls = nil
 
 local function SetChatEnabled(enabled)
 	pcall(function()
@@ -35,7 +37,145 @@ local function SetChatEnabled(enabled)
 	end)
 end
 
+local function GetControls()
+	if Controls then
+		return Controls
+	end
+
+	local playerScripts = Player:FindFirstChild("PlayerScripts")
+	if not playerScripts then
+		return nil
+	end
+
+	local playerModuleScript = playerScripts:FindFirstChild("PlayerModule")
+	if not playerModuleScript then
+		return nil
+	end
+
+	local success, playerModule = pcall(require, playerModuleScript)
+	if not success then
+		warn("Failed to load PlayerModule for loading screen controls:", playerModule)
+		return nil
+	end
+
+	if type(playerModule.GetControls) ~= "function" then
+		return nil
+	end
+
+	Controls = playerModule:GetControls()
+	return Controls
+end
+
+local function SetControlsEnabled(enabled)
+	local controls = GetControls()
+	if not controls then
+		return
+	end
+
+	pcall(function()
+		if enabled then
+			controls:Enable()
+		else
+			controls:Disable()
+		end
+	end)
+end
+
+local function GetReadyCharacterParts()
+	local character = Player.Character
+	if not character or character.Parent ~= Workspace then
+		return nil, nil, nil
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not rootPart then
+		return nil, nil, nil
+	end
+
+	return character, humanoid, rootPart
+end
+
+local function IsCharacterReadyToWalk()
+	local character, humanoid, rootPart = GetReadyCharacterParts()
+	if not character or not humanoid or not rootPart then
+		return false, nil
+	end
+
+	if humanoid.Health <= 0 then
+		return false, nil
+	end
+
+	if rootPart.Anchored or humanoid.WalkSpeed <= 0 then
+		return false, nil
+	end
+
+	local currentCamera = Workspace.CurrentCamera
+	if not currentCamera then
+		return false, nil
+	end
+
+	local cameraSubject = currentCamera.CameraSubject
+	if cameraSubject ~= humanoid and not (cameraSubject and cameraSubject:IsDescendantOf(character)) then
+		return false, nil
+	end
+
+	return true, rootPart
+end
+
+local function WaitForGameplayReady()
+	local stableChecks = 0
+	local lastPosition = nil
+	local timedOutAt = os.clock() + 20
+	local requiredStableChecks = 6
+
+	repeat
+		if Finished then
+			return false
+		end
+
+		local isReady, rootPart = IsCharacterReadyToWalk()
+		if isReady then
+			local currentPosition = rootPart.Position
+			if lastPosition and (currentPosition - lastPosition).Magnitude <= 0.15 then
+				stableChecks += 1
+			else
+				stableChecks = 0
+			end
+
+			lastPosition = currentPosition
+		else
+			stableChecks = 0
+			lastPosition = nil
+		end
+
+		LoadingTextLabel.Text = "Finalizing Spawn..."
+		task.wait(0.1)
+	until (
+		game:IsLoaded()
+			and Player:FindFirstChild("DataLoaded")
+			and (AssetsLoaded or ForceLoad)
+			and stableChecks >= requiredStableChecks
+	) or os.clock() >= timedOutAt
+
+	return not Finished
+end
+
 SetChatEnabled(false)
+
+task.spawn(function()
+	local deadline = os.clock() + 10
+
+	while not Finished and os.clock() < deadline do
+		local controls = GetControls()
+		if controls then
+			SetControlsEnabled(false)
+			return
+		end
+
+		task.wait(0.1)
+	end
+end)
 
 local function LoadIntoGame()
 	if Finished then
@@ -43,6 +183,8 @@ local function LoadIntoGame()
 	end
 
 	Finished = true
+	
+	task.wait(3)
 
 	local UIHandler = require(
 		ReplicatedStorage
@@ -54,6 +196,7 @@ local function LoadIntoGame()
 	UIHandler.Transition()
 
 	SetChatEnabled(true)
+	SetControlsEnabled(true)
 
 	Debris:AddItem(LoadingGui, 2)
 
@@ -105,7 +248,8 @@ task.spawn(function()
 		end
 
 		ForceLoad = true
-		LoadIntoGame()
+		SkipButton.Visible = false
+		LoadingTextLabel.Text = "Finishing Setup..."
 	end)
 end)
 
@@ -146,12 +290,10 @@ until ForceLoad or Finished or (
 )
 
 if ForceLoad or Finished then
-	return
+	LoadingTextLabel.Text = "Finishing Setup..."
 end
 
-task.wait(6)
-
-if ForceLoad or Finished then
+if not WaitForGameplayReady() or Finished then
 	return
 end
 

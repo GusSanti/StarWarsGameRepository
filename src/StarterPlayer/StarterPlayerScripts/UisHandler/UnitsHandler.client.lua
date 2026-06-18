@@ -125,10 +125,6 @@ local selectState = "None"
 local sellButtonList = {}
 local fuseButtonList = {}
 local blockOpen = true
-local INVENTORY_REFRESH_DEBOUNCE = 0.05
-local inventoryRefreshScheduled = false
-local inventoryRefreshQueued = false
-local inventoryRefreshToken = 0
 
 local viewportCache = {}
 local craftStatLabelCache = {}
@@ -698,39 +694,6 @@ local function updateInventory()
 	refreshInventoryButtonVisibility()
 end
 
-local function requestInventoryRefresh(immediate)
-	if immediate then
-		inventoryRefreshToken += 1
-		inventoryRefreshScheduled = false
-		inventoryRefreshQueued = false
-		updateInventory()
-		return
-	end
-
-	if inventoryRefreshScheduled then
-		inventoryRefreshQueued = true
-		return
-	end
-
-	inventoryRefreshScheduled = true
-	inventoryRefreshToken += 1
-	local refreshToken = inventoryRefreshToken
-
-	task.delay(INVENTORY_REFRESH_DEBOUNCE, function()
-		if refreshToken ~= inventoryRefreshToken or not inventoryRefreshScheduled then
-			return
-		end
-
-		inventoryRefreshScheduled = false
-		updateInventory()
-
-		if inventoryRefreshQueued then
-			inventoryRefreshQueued = false
-			requestInventoryRefresh()
-		end
-	end)
-end
-
 local function isJunkTraderSelectionActive()
 	return _G.junkTraderTowerSelection == true and typeof(_G.junkTraderSelectTower) == "function"
 end
@@ -1114,7 +1077,7 @@ end)
 
 player.OwnedTowers.ChildRemoved:Connect(function(child)
 	removeButton(child)
-	requestInventoryRefresh()
+	updateInventory()
 end)
 
 EquipBtn.Activated:Connect(function()
@@ -1173,22 +1136,18 @@ for _,button in pairs(SelectRarityFilters:GetChildren()) do
 		button.Activated:Connect(function()
 			currentFilter = currentFilter == button.Name and "None" or button.Name
 			updateFilter()
-			requestInventoryRefresh(true)
+			updateInventory()
 		end)
 	end
 end
 
-player.PlayerLevel.Changed:Connect(function()
-	requestInventoryRefresh()
-end)
+player.PlayerLevel.Changed:Connect(updateInventory)
 player:WaitForChild("MaxUnits").Changed:Connect(function()
 	refreshInventoryButtonVisibility()
 end)
 player.PlayerExp.Changed:Connect(updatePlayerLevelBar)
 
-_G.refreshUnitsInventory = function()
-	requestInventoryRefresh(true)
-end
+_G.refreshUnitsInventory = updateInventory
 _G.refreshUnitsInventoryVisibility = refreshInventoryButtonVisibility
 
 task.spawn(function()
@@ -1197,9 +1156,7 @@ task.spawn(function()
 
 	for i, v in pairs(player.OwnedTowers:GetChildren()) do
 		addButton(v)
-		v.AttributeChanged:Connect(function()
-			requestInventoryRefresh()
-		end)
+		v.AttributeChanged:Connect(updateInventory)
 	end
 
 	updateInventory()
@@ -1224,14 +1181,10 @@ player:WaitForChild("OwnedTowers").ChildAdded:Connect(function(child)
 	child:GetPropertyChangedSignal('Name'):Connect(function()
 		removeButton(child)
 		addButton(child)
-		requestInventoryRefresh()
+		updateInventory()
 	end)
-	child.AttributeChanged:Connect(function()
-		requestInventoryRefresh()
-	end)
-	child.Changed:Connect(function()
-		requestInventoryRefresh()
-	end)
+	child.AttributeChanged:Connect(updateInventory)
+	child.Changed:Connect(updateInventory)
 end)
 
 UnitsUI:GetPropertyChangedSignal('Visible'):Connect(function()
@@ -1244,7 +1197,7 @@ UnitsUI:GetPropertyChangedSignal('Visible'):Connect(function()
 	end
 
 	if UnitsUI.Visible then
-		requestInventoryRefresh(true)
+		updateInventory()
 	elseif _G.evolveTowerSelection == true then
 		if typeof(_G.evolveTowerCancelSelection) == "function" then
 			_G.evolveTowerCancelSelection()

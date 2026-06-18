@@ -96,7 +96,7 @@ return {
 		["2"] = {},
 		["3"] = {},
 		["4"] = {}
-		
+
 	},
 	OwnGamePasses = {
 		["VIP"] = false,
@@ -109,7 +109,7 @@ return {
 		["2x Player XP"] = false,
 		["2x Speed"] = false,
 		["3x Speed"] = false,
-		
+
 		["Starter Bundle"] = false,
 		["Supreme Bundle"] = false,
 		["Fawn"] = false,
@@ -136,17 +136,17 @@ return {
 	TimeSpent = 0,
 	RobuxSpent = 0,
 	Speed = 1, -- for 1.5x & 3x speed
-	
-	
+
+
 	-- Raids Data
 	RaidActData = {},
 	RaidLimitData = {
 		Attempts = 5,
-        NextReset = 0,
-        OldReset = 0,
+		NextReset = 0,
+		OldReset = 0,
 	}
-	
-	
+
+
 	--[[
 	['Map'] = {
 		['Act1'] = {
@@ -158,6 +158,6 @@ return {
 	
 	
 	--]]
-	
-	
+
+
 }

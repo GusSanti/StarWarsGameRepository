@@ -58,6 +58,12 @@ local OnNametag = function(Character: Model, Player: Player)
 	RankDisplay.Visible = TaggedColor or OwnsUltraVIP or OwnsVIP
 	RankDisplay.Text = TaggedColor and ("[ " .. PlayerRoleInGroup .. " ]") or (OwnsUltraVIP and "[ ULTRA VIP ]") or (OwnsVIP and "[ VIP ]") or ""
 	RankDisplay.TextColor3 = TaggedColor or ((OwnsVIP and not OwnsUltraVIP) and Yellow) or White
+	
+	if Player.UserId == 120046611 then
+		RankDisplay.Visible = true
+		RankDisplay.Text = "[THE EMPEROR 👑]"
+		RankDisplay.TextColor3 = Color3.new(1,1,1)
+	end
 
 	if OwnsUltraVIP then
 		ULTRA:Clone().Parent = RankDisplay
