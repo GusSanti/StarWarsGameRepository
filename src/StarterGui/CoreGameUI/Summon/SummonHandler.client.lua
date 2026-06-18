@@ -1600,6 +1600,7 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 			setRewardPopupClosedCallback(function()
 				summonSummaryPending = false
 				setSummonVisible(true)
+				UiHandler.DisableAllButtons()
 			end)
 			_G.ShowRewardPopupSummary(summaryToShow)
 		elseif shouldContinueAutoSummon then
@@ -1610,6 +1611,7 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 			summonSummaryPending = false
 			setRewardPopupClosedCallback(nil)
 			setSummonVisible(true)
+			UiHandler.DisableAllButtons()
 		end
 
 		if shouldContinueAutoSummon then

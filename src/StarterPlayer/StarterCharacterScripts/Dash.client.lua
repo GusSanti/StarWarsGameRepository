@@ -18,6 +18,12 @@ local DASH_SHARD_SPREAD = Vector2.new(16, 16)
 
 local lastDashTime = 0
 
+local function emitDashVFX(character)
+	if typeof(_G.EmitDashDoubleJumpVFX) == "function" then
+		_G.EmitDashDoubleJumpVFX(character)
+	end
+end
+
 local function getFlatDirection(vector)
 	local flatDirection = Vector3.new(vector.X, 0, vector.Z)
 	if flatDirection.Magnitude <= 0.05 then
@@ -123,6 +129,8 @@ local function dash()
 	dashVelocity.Velocity = dashDirection * DASH_SPEED
 	dashVelocity.Parent = rootPart
 	emitDashShards(rootPart, dashDirection)
+
+	emitDashVFX(character)
 
 	Debris:AddItem(dashVelocity, DASH_DURATION)
 end

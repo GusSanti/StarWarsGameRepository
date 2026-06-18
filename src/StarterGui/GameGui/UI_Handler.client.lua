@@ -14,6 +14,7 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 local UIHandlerModule = require(ReplicatedStorage.Modules.Client.UIHandler)
 local DailyRewardModule = require(ReplicatedStorage.Modules.DailyReward)
 local Simplebar = require(ReplicatedStorage.Modules.Client.Simplebar)
+local DisplayFramesOnLoad = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("DisplayFramesOnLoad")
 
 local NewUI = PlayerGui:WaitForChild("NewUI")
 
@@ -31,13 +32,12 @@ end
 
 local GroupRewardsFrame = getOptionalNewUIChild("GroupRewardsFrame")
 local LvlUpFrame = getOptionalNewUIChild("RewardPopUp")
-local DailyRewardFrame = getOptionalNewUIChild("DailyRewardFrame") or getOptionalNewUIChild("Daily")
 local IndexFrame = getOptionalNewUIChild("IndexFrame")
 local TraitFrame = getOptionalNewUIChild("WillPower")
 local ListFrame = getOptionalNewUIChild("List")
 local legacyDailyRewardFolder = CoreGameUI:FindFirstChild("DailyReward")
-local autoOpenDailyRewardFrame = DailyRewardFrame
-	or (legacyDailyRewardFolder and legacyDailyRewardFolder:FindFirstChild("DailyRewardFrame"))
+local DailyRewardFrame = nil
+local autoOpenDailyRewardFrame = nil
 local DAILY_REWARD_PENDING_ATTR = "DailyRewardStartupPending"
 local DAILY_REWARD_RESOLVED_ATTR = "DailyRewardStartupResolved"
 local DAILY_REWARD_SHOWN_ATTR = "DailyRewardStartupShown"
@@ -85,6 +85,8 @@ local listIsOpen = ListFrame and ListFrame.Visible or false
 local listTween = nil
 local prev = nil
 local isFirstAutoOpen = false
+local pendingDailyRewardAutoOpen = false
+local dailyRewardStartupWatchdogRunning = false
 
 local function addGuiIfPresent(targetTable, gui)
 	if gui and gui:IsA("GuiObject") then
@@ -94,9 +96,7 @@ end
 
 addGuiIfPresent(othermenus, IndexFrame)
 addGuiIfPresent(othermenus, TraitFrame)
-addGuiIfPresent(othermenus, DailyRewardFrame)
 addGuiIfPresent(othermenus, GroupRewardsFrame)
-addGuiIfPresent(openuionstart, autoOpenDailyRewardFrame)
 
 -- FUNCTIONS
 function CanClaim()
@@ -105,6 +105,37 @@ function CanClaim()
 	end
 
 	return DailyRewardModule.GetTimeUntilClaim(player) <= 0
+end
+
+local function resolveDailyRewardFrame(waitTimeout)
+	local deadline = waitTimeout and (os.clock() + waitTimeout) or nil
+
+	repeat
+		local newDailyRewardFrame = NewUI:FindFirstChild("DailyRewardFrame")
+			or NewUI:FindFirstChild("Daily")
+			or NewUI:FindFirstChild("DailyRewardFrame", true)
+			or NewUI:FindFirstChild("Daily", true)
+
+		if newDailyRewardFrame and newDailyRewardFrame:IsA("GuiObject") then
+			DailyRewardFrame = newDailyRewardFrame
+			autoOpenDailyRewardFrame = newDailyRewardFrame
+			return newDailyRewardFrame
+		end
+
+		local legacyDailyRewardFrame = legacyDailyRewardFolder and legacyDailyRewardFolder:FindFirstChild("DailyRewardFrame")
+		if legacyDailyRewardFrame and legacyDailyRewardFrame:IsA("GuiObject") then
+			autoOpenDailyRewardFrame = legacyDailyRewardFrame
+			return legacyDailyRewardFrame
+		end
+
+		if not deadline or os.clock() >= deadline then
+			break
+		end
+
+		task.wait(0.1)
+	until false
+
+	return autoOpenDailyRewardFrame
 end
 
 local function setDailyRewardStartupState(pending, resolved, shown)
@@ -122,22 +153,13 @@ local function setDailyRewardStartupState(pending, resolved, shown)
 end
 
 local function initializeDailyRewardStartupState()
-	local shouldAutoOpenDailyReward = CanClaim() and autoOpenDailyRewardFrame ~= nil
-	setDailyRewardStartupState(shouldAutoOpenDailyReward, not shouldAutoOpenDailyReward, false)
-	NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, not shouldAutoOpenDailyReward)
+	local canClaimDailyReward = CanClaim()
+	resolveDailyRewardFrame()
+	setDailyRewardStartupState(canClaimDailyReward, not canClaimDailyReward, false)
+	NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, not canClaimDailyReward)
 end
 
 initializeDailyRewardStartupState()
-
-if autoOpenDailyRewardFrame then
-	autoOpenDailyRewardFrame:GetPropertyChangedSignal("Visible"):Connect(function()
-		if autoOpenDailyRewardFrame.Visible then
-			setDailyRewardStartupState(true, false, true)
-		elseif NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) then
-			setDailyRewardStartupState(false, true, true)
-		end
-	end)
-end
 
 local function blur(blurState: boolean, otherVisible: boolean)
 	if blurState then
@@ -217,7 +239,7 @@ local function getJunkTraderMenuTarget()
 end
 
 local function getDailyRewardTarget()
-	local newDailyReward = NewUI:FindFirstChild("DailyRewardFrame") or NewUI:FindFirstChild("Daily")
+	local newDailyReward = resolveDailyRewardFrame()
 	return newDailyReward and newDailyReward.Name or "DailyRewardFrame"
 end
 
@@ -349,6 +371,152 @@ local function selectInstanceFromString(except)
 	end
 
 	return foundInstance
+end
+
+local closeall
+
+local function bindTrackedMenuCloseButton(frame)
+	local closeBtnFolder = frame:FindFirstChild("Closebtn", true)
+
+	if closeBtnFolder then
+		local btn = closeBtnFolder:FindFirstChild("Btn")
+		if btn and btn:IsA("GuiButton") and not btn:GetAttribute("CloseConnected") then
+			btn:SetAttribute("CloseConnected", true)
+
+			btn.Activated:Connect(function()
+				if _G.Occupied then return end
+
+				if isDailyRewardMenu(frame.Name) then
+					NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, true)
+					setDailyRewardStartupState(false, true, true)
+				end
+
+				if prev then
+					closeall(prev)
+				else
+					closeall()
+				end
+			end)
+		end
+	end
+end
+
+local function bindDailyRewardStartupTracking(frame)
+	if not frame or not frame:IsA("GuiObject") then
+		return
+	end
+
+	if not table.find(othermenus, frame) then
+		table.insert(othermenus, frame)
+	end
+
+	if not frame:GetAttribute("DailyRewardStartupBound") then
+		frame:SetAttribute("DailyRewardStartupBound", true)
+		frame:GetPropertyChangedSignal("Visible"):Connect(function()
+			if frame.Visible then
+				setDailyRewardStartupState(true, false, true)
+			elseif NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) then
+				setDailyRewardStartupState(false, true, true)
+			end
+		end)
+	end
+
+	bindTrackedMenuCloseButton(frame)
+end
+
+local function tryAutoOpenDailyReward(waitTimeout)
+	if pendingDailyRewardAutoOpen then
+		return false
+	end
+
+	if not CanClaim() then
+		setDailyRewardStartupState(false, true, false)
+		NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, true)
+		return false
+	end
+
+	pendingDailyRewardAutoOpen = true
+	local resolvedFrame = resolveDailyRewardFrame(waitTimeout)
+	pendingDailyRewardAutoOpen = false
+
+	if not resolvedFrame then
+		setDailyRewardStartupState(true, false, false)
+		NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, false)
+		return false
+	end
+
+	bindDailyRewardStartupTracking(resolvedFrame)
+
+	if resolvedFrame.Visible or NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) then
+		return true
+	end
+
+	local startupDeadline = os.clock() + 20
+	while os.clock() < startupDeadline do
+		local loadingComplete = _G.LoadingScreenComplete == true
+		local streakAnimationPending = player:FindFirstChild("PlayStreakAnimation") and player.PlayStreakAnimation.Value == true
+		local startupOccupied = _G.Occupied == true
+
+		if loadingComplete and not streakAnimationPending and not startupOccupied then
+			break
+		end
+
+		task.wait(0.25)
+	end
+
+	setDailyRewardStartupState(true, false, false)
+	NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, false)
+
+	isFirstAutoOpen = true
+	closeall(resolvedFrame.Name)
+	isFirstAutoOpen = false
+	return true
+end
+
+local function startDailyRewardStartupWatchdog()
+	if dailyRewardStartupWatchdogRunning then
+		return
+	end
+
+	dailyRewardStartupWatchdogRunning = true
+
+	task.spawn(function()
+		local startupDeadline = os.clock() + 45
+		local visibleWhileReadySince = nil
+
+		while os.clock() < startupDeadline do
+			if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+				break
+			end
+
+			if not CanClaim() then
+				break
+			end
+
+			local frame = resolveDailyRewardFrame(0.25)
+			local loadingComplete = _G.LoadingScreenComplete == true
+			local streakAnimationPending = player:FindFirstChild("PlayStreakAnimation") and player.PlayStreakAnimation.Value == true
+			local startupOccupied = _G.Occupied == true
+			local readyForDaily = loadingComplete and not streakAnimationPending and not startupOccupied
+
+			if frame and frame.Visible and readyForDaily then
+				visibleWhileReadySince = visibleWhileReadySince or os.clock()
+				if os.clock() - visibleWhileReadySince >= 1 then
+					break
+				end
+			else
+				visibleWhileReadySince = nil
+
+				if readyForDaily then
+					tryAutoOpenDailyReward(0.25)
+				end
+			end
+
+			task.wait(0.5)
+		end
+
+		dailyRewardStartupWatchdogRunning = false
+	end)
 end
 
 local function getListClosedPosition()
@@ -483,7 +651,7 @@ local function toggleListDrawer()
 	end
 end
 
-local function closeall(except, dontOverride)
+closeall = function(except, dontOverride)
 	local originalExcept = except
 	except = normalizeCloseAllTarget(except)
 
@@ -873,29 +1041,7 @@ for _, v in ipairs(buttonguis) do table.insert(allFramesToCheck, v) end
 for _, v in ipairs(othermenus) do table.insert(allFramesToCheck, v) end
 
 for _, frame in ipairs(allFramesToCheck) do
-	local closeBtnFolder = frame:FindFirstChild("Closebtn", true)
-
-	if closeBtnFolder then
-		local btn = closeBtnFolder:FindFirstChild("Btn")
-		if btn and btn:IsA("GuiButton") and not btn:GetAttribute("CloseConnected") then
-			btn:SetAttribute("CloseConnected", true)
-
-			btn.Activated:Connect(function()
-				if _G.Occupied then return end
-
-				if isDailyRewardMenu(frame.Name) then
-					NewUI:SetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR, true)
-					setDailyRewardStartupState(false, true, true)
-				end
-
-				if prev then
-					closeall(prev)
-				else
-					closeall()
-				end
-			end)
-		end
-	end
+	bindTrackedMenuCloseButton(frame)
 end
 
 for i, v in buttonguis do
@@ -976,6 +1122,34 @@ for _, element in openuionstart do
 		isFirstAutoOpen = false
 	end
 end
+
+task.spawn(function()
+	tryAutoOpenDailyReward(10)
+end)
+
+task.spawn(startDailyRewardStartupWatchdog)
+
+NewUI.ChildAdded:Connect(function(child)
+	if not child or not isDailyRewardMenu(child.Name) then
+		return
+	end
+
+	task.spawn(function()
+		tryAutoOpenDailyReward(0)
+	end)
+	task.spawn(startDailyRewardStartupWatchdog)
+end)
+
+DisplayFramesOnLoad.OnClientEvent:Connect(function(name)
+	if not isDailyRewardMenu(name) then
+		return
+	end
+
+	task.spawn(function()
+		tryAutoOpenDailyReward(10)
+	end)
+	task.spawn(startDailyRewardStartupWatchdog)
+end)
 
 for i, v in buttons do
 	if v:IsA("GuiButton") then
