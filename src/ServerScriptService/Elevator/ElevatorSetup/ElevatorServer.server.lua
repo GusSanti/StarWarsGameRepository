@@ -21,6 +21,8 @@ local moving = false
 local choose = false
 local quickstart = false
 local timeExited = tick()
+local countdownGeneration = 0
+local countdownRunning = false
 
 local gui = script.Parent.Door.Surface.Frame.InformationFrame
 local modeTextByValue = {
@@ -116,7 +118,11 @@ local function Setup()
 	playersWaiting = {}
 	moving = false
 	choose = false
+	quickstart = false
+	countdownGeneration += 1
+	countdownRunning = false
 	script.Parent.Level.Value = 1
+	script.Parent.Mode.Value = 1
 	script.Parent.World.Value = 1
 	script.Parent.Owner.Value = ""
 	script.Parent.TimerActive.Value = false
@@ -146,6 +152,10 @@ local function TeleportPlayers()
 end
 
 local function MoveElevator()
+	if moving then
+		return
+	end
+
 	gui.Status.State.Text = "Teleporting..."
 	moving = true
 	for i, player in playersWaiting do
@@ -156,11 +166,15 @@ local function MoveElevator()
 	Setup()
 end
 
-local function RunCountdown()
+local function RunCountdown(countdownId)
 	local currentOwner = script.Parent.Owner.Value
 
 	script.Parent.TimerActive.Value = true
 	for i=50, 1, -1 do
+		if countdownId ~= countdownGeneration then
+			return
+		end
+
 		script.Parent.Timer.Value = i
 		task.wait(1)
 		if #playersWaiting < 1 then
@@ -176,6 +190,10 @@ local function RunCountdown()
 			gui.Status.Bar.Size = UDim2.new(0,0,1,0)
 			break
 		end
+	end
+
+	if countdownId ~= countdownGeneration then
+		return
 	end
 
 	if choose then
@@ -199,6 +217,10 @@ local function RunCountdown()
 			Setup()
 			script.Parent.TimerActive.Value = false
 		end
+	end
+
+	if countdownId == countdownGeneration then
+		countdownRunning = false
 	end
 end
 
@@ -235,40 +257,38 @@ elevator.Door.Touched:Connect(function(part)
 			requiredLevel = #StoryModeStats.LevelName[StoryModeStats.Worlds[script.Parent.World.Value]]
 		end
 
+		local ownerPlayer = Players:FindFirstChild(script.Parent.Owner.Value)
 		local checks = {
 			gotPlayer = player,
 			notWaiting = not isWaiting,
 			isElevatorFull = #playersWaiting < config.MaxPlayers.Value,
 			notMoving = not moving,
 			notLocked = not script.Parent.Locked.Value,
-			appropriateTiem = tick()-1 > timeExited,
+			appropriateTime = tick() - 1 > timeExited,
+			friendsOnlyCheck = (not script.Parent.FriendsOnly.Value) or (ownerPlayer and player:IsFriendsWith(ownerPlayer.UserId)),
 		}
 
 		local allGood = true
-
-		--for i,v in pairs(checks) do
-		--    if v then
-		--        continue
-		--    else
-		--        print('One check was not fulfilled:')
-		--        warn(i)
-		--        print('Got value:')
-		--        warn(v)
-		--    end
-		--end
-
+		for _, passedCheck in pairs(checks) do
+			if not passedCheck then
+				allGood = false
+				break
+			end
+		end
 
 		if allGood and
-			(playerData.StoryProgress.World.Value > script.Parent.World.Value or (playerData.StoryProgress.World.Value == script.Parent.World.Value and playerData.StoryProgress.Level.Value >= requiredLevel)) and
-			(script.Parent.FriendsOnly.Value == false or (script.Parent.FriendsOnly.Value == true and player:IsFriendsWith(Players[script.Parent.Owner.Value].UserId))) then
+			(playerData.StoryProgress.World.Value > script.Parent.World.Value or (playerData.StoryProgress.World.Value == script.Parent.World.Value and playerData.StoryProgress.Level.Value >= requiredLevel)) then
 			print('WE IN!')
 
+			local isFirstPlayer = (#playersWaiting == 0)
 			table.insert(playersWaiting, player)
 			local plrval = Instance.new("StringValue")
 			plrval.Name = player.Name
 			plrval.Parent = script.Parent.Players
 
-			player.Character.PrimaryPart.CFrame = elevator.TeleportIn.CFrame
+			if player.Character and player.Character.PrimaryPart then
+				player.Character.PrimaryPart.CFrame = elevator.TeleportIn.CFrame
+			end
 
 			if #playersWaiting > 0 then
 				script.Parent.Owner.Value = playersWaiting[1].Name
@@ -276,25 +296,19 @@ elevator.Door.Touched:Connect(function(part)
 
 			elevatorEvent:FireClient(player, elevator, "Story")
 
-			script.Parent.Locked.Value = true
-			gui.Status.State.Text = "Choosing..."
-
-			task.spawn(function()
-				RunCountdown()
-			end)
-
-			while not choose and #playersWaiting > 0 do
-				task.wait()
+			if isFirstPlayer then
+				script.Parent.Locked.Value = true
+				gui.Status.State.Text = "Choosing..."
 			end
-			--repeat task.wait(0.1) until choose or #playersWaiting == 0
 
-			script.Parent.Locked.Value = false
-			--if not script.Parent.TimerActive.Value and choose then
-			--	task.spawn(function()
-			--		RunCountdown()
-			--	end)
-
-			--end
+			if not countdownRunning then
+				countdownRunning = true
+				countdownGeneration += 1
+				local countdownId = countdownGeneration
+				task.spawn(function()
+					RunCountdown(countdownId)
+				end)
+			end
 		end
 	end
 	update()
