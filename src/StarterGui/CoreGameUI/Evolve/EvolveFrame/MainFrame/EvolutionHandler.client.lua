@@ -63,12 +63,32 @@ local function refreshUnitsInventory()
 	end
 end
 
+local function hideEvolveGui()
+	MainFrame.Visible = false
+	gui.Visible = false
+end
+
+local function showEvolveGui()
+	if not evolveZoneOccupied then
+		hideEvolveGui()
+		return
+	end
+
+	if typeof(_G.CloseAll) == "function" then
+		_G.CloseAll("Evolve")
+	end
+
+	MainFrame.Visible = true
+	gui.Visible = true
+end
+
 local function clearEvolveSelection(restoreGui)
 	_G.evolveTowerSelection = false
 
 	if restoreGui then
-		script.Parent.Visible = true
-		gui.Visible = true
+		showEvolveGui()
+	else
+		hideEvolveGui()
 	end
 
 	refreshUnitsInventory()
@@ -105,9 +125,7 @@ local function update()
 			"name=" .. tostring(selectedUnit.Value.Name),
 			"parent=" .. tostring(selectedUnit.Value.Parent)
 		)
-		_G.CloseAll("Evolve")
-		script.Parent.Visible = true
-		gui.Visible = true
+		showEvolveGui()
 
 		local unit = Upgrades[selectedUnit.Value.Name]
 
@@ -225,11 +243,9 @@ local function onEvolveZoneEntered(source)
 		"mainVisibleBefore=" .. tostring(MainFrame.Visible),
 		"closeAllExists=" .. tostring(typeof(_G.CloseAll) == "function")
 	)
-	_G.CloseAll('Evolve')
 	_G.CanSummon = false
 	if _G.evolveTowerSelection == false then
-		script.Parent.Visible = true
-		gui.Visible = true
+		showEvolveGui()
 	end
 	debugEvolve(
 		"zone_entered_after_open",
@@ -258,6 +274,7 @@ local function onEvolveZoneExited(source)
 	selectedUnit.Value = nil
 	clearEvolveSelection(false)
 	Inventory.Visible = false
+	hideEvolveGui()
 
 	debugEvolve(
 		"zone_exited_after_reset",
@@ -281,7 +298,7 @@ _G.evolveTowerSelectTower = function(tower)
 end
 
 _G.evolveTowerCancelSelection = function()
-	clearEvolveSelection(true)
+	clearEvolveSelection(evolveZoneOccupied)
 end
 
 if not evolutionBox then
@@ -398,7 +415,7 @@ MainFrame.SelectUnit.Activated:Connect(function()
 
 	if _G.evolveTowerSelection == false then
 		warn("Opening xo2")
-		script.Parent.Visible = false
+		hideEvolveGui()
 		_G.evolveTowerSelection = true
 
 		_G.CloseAll("Units")
@@ -413,6 +430,18 @@ MainFrame.SelectUnit.Activated:Connect(function()
 		refreshUnitsInventory()
 
 		warn(selectedUnit.Value)
+	end
+end)
+
+gui:GetPropertyChangedSignal("Visible"):Connect(function()
+	if gui.Visible and not evolveZoneOccupied then
+		hideEvolveGui()
+	end
+end)
+
+MainFrame:GetPropertyChangedSignal("Visible"):Connect(function()
+	if MainFrame.Visible and not evolveZoneOccupied then
+		hideEvolveGui()
 	end
 end)
 
