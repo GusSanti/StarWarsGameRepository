@@ -626,6 +626,102 @@ local function changeSelectState(stateChange)
 	selectState = stateChange
 end
 
+local function updateEquipButtonVisual(tower)
+	if not tower then
+		return
+	end
+
+	local isEquipped = tower:GetAttribute("Equipped")
+	EquipBtnText.Text = isEquipped and "Unequip" or "Equip"
+
+	local equipBg = CraftButtons:FindFirstChild("Equip") and CraftButtons.Equip:FindFirstChild("Bg")
+	if equipBg then
+		local targetColor = isEquipped and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(50, 200, 50)
+		equipBg.BackgroundColor3 = targetColor
+		if equipBg:FindFirstChild("1") and equipBg["1"]:IsA("UIStroke") then
+			equipBg["1"].Color = targetColor
+		end
+		if equipBg:FindFirstChild("2") and equipBg["2"]:IsA("UIStroke") then
+			equipBg["2"].Color = targetColor
+		end
+		local uiGradient = equipBg:FindFirstChildOfClass("UIGradient") or equipBg:FindFirstChild("UIGradient")
+		if uiGradient and uiGradient:IsA("UIGradient") then
+			uiGradient.Color = ColorSequence.new(targetColor)
+		end
+	end
+end
+
+local function renderSelectedTowerDetails(tower)
+	if not tower or tower.Parent ~= player.OwnedTowers then
+		return
+	end
+
+	local statsTower = UpgradesModule[tower.Name]
+	if not statsTower then
+		return
+	end
+
+	local existingWorldModel = ViewportPlaceholder:FindFirstChildOfClass("WorldModel")
+	if existingWorldModel then
+		existingWorldModel:Destroy()
+	end
+
+	local selectedViewport = ViewPortModule.CreateViewPort(statsTower.Name)
+	local selectedWorldModel = selectedViewport and selectedViewport:FindFirstChildOfClass("WorldModel")
+	if selectedWorldModel then
+		selectedWorldModel.Parent = ViewportPlaceholder
+	end
+
+	local statlabels = {"Damage", "Cooldown", "Range"}
+	local baseStats = statsTower.Upgrades[1]
+	local level = tower:GetAttribute("Level") or 1
+	local levelboost = 1 + level * (1 / 50)
+
+	for _, stat in pairs(statlabels) do
+		local finalStatVal = baseStats[stat]
+		if stat == "Damage" then
+			finalStatVal = math.round(baseStats[stat] * levelboost) > 100
+				and math.round(baseStats[stat] * levelboost)
+				or math.round((baseStats[stat] * levelboost) * 10) / 10
+		end
+
+		local amountLabel = getCraftStatAmountLabel(stat)
+		if amountLabel and finalStatVal ~= nil then
+			amountLabel.Text = formatUnitStatValue(finalStatVal)
+		end
+	end
+
+	local currentExp = tower:GetAttribute("Exp") or 0
+	local requiredExp = ExpModule.towerExpCalculation(level)
+	local maxLevel = ExpModule.getTowerMaxStats()
+	local finalRarity = statsTower["Rarity"] or "Rare"
+
+	UnitNameText.Text = tower.Name
+	UnitRarityText.Text = finalRarity == "Exclusive" and "[EXCLUSIVE]" or finalRarity
+	UnitCostText.Text = "$" .. math.round(statsTower.Upgrades[1].Price)
+
+	local craftColor = getRarityColor(finalRarity)
+	local craftBg = CraftFrame:FindFirstChild("Bg")
+	if craftBg then
+		craftBg.BackgroundColor3 = craftColor
+		if craftBg:FindFirstChild("1") then craftBg["1"].Color = craftColor end
+		if craftBg:FindFirstChild("2") then craftBg["2"].Color = craftColor end
+		if craftBg:FindFirstChild("3") then craftBg["3"].Color = craftColor end
+	end
+	UnitRarityText.TextColor3 = craftColor
+
+	if level >= maxLevel then
+		CraftBar:FindFirstChild("Fill").Size = UDim2.new(1, 0, 1, 0)
+		CraftBar:FindFirstChild("Text").Text = "MAX"
+	else
+		local progress = requiredExp > 0 and (currentExp / requiredExp) or 0
+		CraftBar:FindFirstChild("Fill").Size = UDim2.new(progress, 0, 1, 0)
+		CraftBar:FindFirstChild("Text").Text = string.format("Level %d (%d/%d)", level, currentExp, requiredExp)
+	end
+
+	updateEquipButtonVisual(tower)
+end
+
 local function updateInventory()
 	syncInventoryButtons()
 
@@ -692,6 +788,10 @@ local function updateInventory()
 	end
 
 	refreshInventoryButtonVisibility()
+
+	if selectState ~= "Fuse" and SelectedTowerValue.Value and SelectedTowerValue.Value.Parent == player.OwnedTowers then
+		renderSelectedTowerDetails(SelectedTowerValue.Value)
+	end
 end
 
 local function isJunkTraderSelectionActive()
@@ -884,7 +984,6 @@ addButton = function(tower)
 
 		if _G.traitTowerSelection == false and _G.InventoryButtonsClickable == true and _G.evolveTowerSelection == false and _G.levelupTowerSelection == false then
 			local statsTowerRefresh = UpgradesModule[tower.Name]
-			local finalRarity = statsTowerRefresh["Rarity"] or "Rare"
 			buttonConnections:DisconnectAll()
 
 			if selectState == "Sell" then
@@ -945,84 +1044,7 @@ addButton = function(tower)
 
 			latestSelectedButton = button
 			SelectedTowerValue.Value = tower
-
-			if statsTowerRefresh then
-				local HasViewPort = ViewportPlaceholder:FindFirstChildOfClass("WorldModel")
-				if HasViewPort then HasViewPort:Destroy() end
-
-				local SelectVp = ViewPortModule.CreateViewPort(statsTowerRefresh.Name)
-				SelectVp:FindFirstChildOfClass("WorldModel").Parent = ViewportPlaceholder
-
-				local statlabels = {"Damage","Cooldown","Range"}
-				local baseStats = statsTowerRefresh.Upgrades[1]
-				local levelboost = 1 + tower:GetAttribute("Level")*(1/50)
-
-				for _, stat in pairs(statlabels) do
-					local finalStatVal = baseStats[stat]
-					if stat == "Damage" then
-						finalStatVal = math.round(baseStats[stat] * levelboost) > 100 and math.round(baseStats[stat] * levelboost) or math.round((baseStats[stat] * levelboost) * 10) / 10
-					end
-					local amountLabel = getCraftStatAmountLabel(stat)
-					if amountLabel and finalStatVal ~= nil then
-						amountLabel.Text = formatUnitStatValue(finalStatVal)
-					end
-				end
-			end
-
-			local level = tower:GetAttribute("Level")
-			local currentExp = tower:GetAttribute("Exp")
-			local requiredExp = ExpModule.towerExpCalculation(level)
-
-			UnitNameText.Text = tower.Name
-			UnitRarityText.Text = finalRarity == "Exclusive" and "[EXCLUSIVE]" or finalRarity
-			UnitCostText.Text = "$" .. math.round(UpgradesModule[tower.Name].Upgrades[1].Price)
-
-			local craftColor = getRarityColor(finalRarity)
-			local craftBg = CraftFrame:FindFirstChild("Bg")
-			if craftBg then
-				craftBg.BackgroundColor3 = craftColor
-				if craftBg:FindFirstChild("1") then craftBg["1"].Color = craftColor end
-				if craftBg:FindFirstChild("2") then craftBg["2"].Color = craftColor end
-				if craftBg:FindFirstChild("3") then craftBg["3"].Color = craftColor end
-			end
-			UnitRarityText.TextColor3 = craftColor
-
-			if level >= 75 then
-				CraftBar:FindFirstChild("Fill").Size = UDim2.new(1,0,1,0)
-				CraftBar:FindFirstChild("Text").Text = "MAX"
-			else
-				CraftBar:FindFirstChild("Fill").Size = UDim2.new(currentExp/requiredExp,0,1,0)
-				CraftBar:FindFirstChild("Text").Text = string.format("Level %d (%d/%d)", level, currentExp, requiredExp)
-			end
-
-			local function updateEquipButtonVisual()
-				local isEquipped = tower:GetAttribute("Equipped")
-				EquipBtnText.Text = isEquipped and "Unequip" or "Equip"
-
-				local equipBg = CraftButtons:FindFirstChild("Equip") and CraftButtons.Equip:FindFirstChild("Bg")
-				if equipBg then
-					local targetColor = isEquipped and Color3.fromRGB(200, 50, 50) or Color3.fromRGB(50, 200, 50)
-					equipBg.BackgroundColor3 = targetColor
-					if equipBg:FindFirstChild("1") and equipBg["1"]:IsA("UIStroke") then
-						equipBg["1"].Color = targetColor
-					end
-					if equipBg:FindFirstChild("2") and equipBg["2"]:IsA("UIStroke") then
-						equipBg["2"].Color = targetColor
-					end
-					local uiGradient = equipBg:FindFirstChildOfClass("UIGradient") or equipBg:FindFirstChild("UIGradient")
-					if uiGradient and uiGradient:IsA("UIGradient") then
-						uiGradient.Color = ColorSequence.new(targetColor)
-					end
-				end
-			end
-
-			updateEquipButtonVisual()
-
-			tower:GetAttributeChangedSignal("Equipped"):Connect(function()
-				updateEquipButtonVisual()
-			end)
-
-			buttonConnections:DisconnectAll()
+			renderSelectedTowerDetails(tower)
 
 			buttonConnections["ViewButton"] = ViewBtn.Activated:Connect(function()
 				if SelectedTowerValue.Value == nil then return end

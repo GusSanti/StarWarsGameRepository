@@ -251,13 +251,41 @@ local function getLegacyPopupRefs()
 end
 
 local function getProfileCardRefs(profile)
+	local bg = profile and (profile:FindFirstChild("Bg") or findDescendantByName(profile, "Bg"))
+	local bgStroke = bg and bg:FindFirstChild("1")
+
 	return {
 		root = profile,
 		title = profile and profile:FindFirstChild("Title"),
 		name = profile and profile:FindFirstChild("Name"),
 		amount = profile and profile:FindFirstChild("Amount"),
+		bgStroke = bgStroke and bgStroke:IsA("UIStroke") and bgStroke or nil,
 		displayContainer = profile and (profile:FindFirstChild("Placeholder") or findDescendantByName(profile, "Placeholder")),
 	}
+end
+
+local function getRarityPrimaryColor(rarity)
+	if not rarity then
+		return nil
+	end
+
+	local border = ReplicatedStorage:FindFirstChild("Borders") and ReplicatedStorage.Borders:FindFirstChild(tostring(rarity))
+		or (ReplicatedStorage:FindFirstChild("Borders") and ReplicatedStorage.Borders:FindFirstChild("Rare"))
+
+	if not border then
+		return nil
+	end
+
+	if border:IsA("UIGradient") then
+		local keypoints = border.Color.Keypoints
+		return keypoints[1] and keypoints[1].Value or nil
+	end
+
+	if border:IsA("Color3Value") then
+		return border.Value
+	end
+
+	return nil
 end
 
 local function collectProfileRarityTargets(profileRefs)
@@ -302,6 +330,11 @@ local function applyProfileRarityStyle(profileRefs, entryData)
 	end
 
 	GradientModule.addRarityGradient(targets, tostring(rarity), true)
+
+	local rarityPrimaryColor = getRarityPrimaryColor(rarity)
+	if rarityPrimaryColor and profileRefs.bgStroke then
+		profileRefs.bgStroke.Color = rarityPrimaryColor
+	end
 end
 
 local function getNewPopupRefs()
