@@ -131,8 +131,12 @@ function DailyRewards.GetTimeUntilClaim(player, day)
 		return 0
 	else
 		local dayDifference = day - nextClaimValue
-		local claimReadyAt = player.DailyRewards.LastClaimTime.Value + DAY_SECONDS + (DAY_SECONDS * dayDifference)
-		return math.max(0, claimReadyAt - getCurrentTime())
+		local nextClaimReadyAt = player.DailyRewards.LastClaimTime.Value + DAY_SECONDS
+		local timeUntilNextClaim = math.max(0, nextClaimReadyAt - getCurrentTime())
+
+		-- Future rewards should stay offset from the next unclaimed reward instead of
+		-- continuing past zero while an earlier day is still waiting to be claimed.
+		return timeUntilNextClaim + (DAY_SECONDS * dayDifference)
 	end
 end
 

@@ -35,6 +35,7 @@ local summonSummaryPending = false
 local autoSummonSessionActive = false
 local autoSummonSessionSummary = nil
 local SUMMON_DEBUG_LOGS_ENABLED = false
+local isPlayerInsideSummonZone = false
 
 local SecretUnit1 = "Anekan Skaivoker"
 local SecretUnit2 = "Palpotin"
@@ -742,6 +743,23 @@ local function isTutorialSummonFlowActive()
 		and not tutorialCompleted.Value
 		and tutorialSection
 		and (tutorialSection.Value == "start" or tutorialSection.Value == "end")
+end
+
+local function restoreUiAfterSummonFlow()
+	if isTutorialSummonFlowActive() then
+		setSummonVisible(false)
+		UiHandler.EnableAllButtons()
+		return
+	end
+
+	if isPlayerInsideSummonZone then
+		setSummonVisible(true)
+		UiHandler.DisableAllButtons()
+		return
+	end
+
+	setSummonVisible(false)
+	UiHandler.EnableAllButtons()
 end
 
 local function beginAutoSummonSession()
@@ -1612,13 +1630,7 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 			setSummonVisible(false)
 			setRewardPopupClosedCallback(function()
 				summonSummaryPending = false
-				if isTutorialSummonFlowActive() then
-					setSummonVisible(false)
-					UiHandler.EnableAllButtons()
-				else
-					setSummonVisible(true)
-					UiHandler.DisableAllButtons()
-				end
+				restoreUiAfterSummonFlow()
 			end)
 			_G.ShowRewardPopupSummary(summaryToShow)
 		elseif shouldContinueAutoSummon then
@@ -1628,13 +1640,7 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 		else
 			summonSummaryPending = false
 			setRewardPopupClosedCallback(nil)
-			if isTutorialSummonFlowActive() then
-				setSummonVisible(false)
-				UiHandler.EnableAllButtons()
-			else
-				setSummonVisible(true)
-				UiHandler.DisableAllButtons()
-			end
+			restoreUiAfterSummonFlow()
 		end
 
 		if shouldContinueAutoSummon then
@@ -1988,6 +1994,7 @@ local zone = Zone.new(workspace.SummonTeleporters.SummonArea)
 
 zone.playerEntered:Connect(function(plr)
 	if plr.Character:FindFirstChild('Humanoid') and plr == player then	
+		isPlayerInsideSummonZone = true
 		if not game.Workspace.CurrentCamera:FindFirstChild("DepthOfField") then
 			local depthOfField = Instance.new("DepthOfFieldEffect",game.Workspace.CurrentCamera)
 		end
@@ -2008,6 +2015,7 @@ zone.playerExited:Connect(function(plr)
 	if not character then return end
 
 	if character:FindFirstChild('Humanoid') and plr == player then	
+		isPlayerInsideSummonZone = false
 		if game.Workspace.CurrentCamera:FindFirstChild("DepthOfField") then
 			game.Workspace.CurrentCamera:FindFirstChild("DepthOfField"):Destroy()
 		end
