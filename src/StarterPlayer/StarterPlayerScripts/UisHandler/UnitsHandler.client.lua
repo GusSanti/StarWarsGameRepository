@@ -82,6 +82,7 @@ local CraftValues = CraftFrame:WaitForChild("Values")
 
 local UnitCostText = CraftFrame:WaitForChild("Amount")
 local UnitRarityText = CraftFrame:WaitForChild("Rarity")
+local UnitTraitText = CraftFrame:WaitForChild("Trait")
 local UnitNameText = CraftFrame:WaitForChild("UnitName")
 
 local ItemsTab = MainFrame:WaitForChild("ItemsTab")
@@ -695,10 +696,42 @@ local function renderSelectedTowerDetails(tower)
 	local requiredExp = ExpModule.towerExpCalculation(level)
 	local maxLevel = ExpModule.getTowerMaxStats()
 	local finalRarity = statsTower["Rarity"] or "Rare"
+	local traitName = tower:GetAttribute("Trait")
 
 	UnitNameText.Text = tower.Name
 	UnitRarityText.Text = finalRarity == "Exclusive" and "[EXCLUSIVE]" or finalRarity
 	UnitCostText.Text = "$" .. math.round(statsTower.Upgrades[1].Price)
+
+	if traitName and traitName ~= "" and TraitsModule.Traits[traitName] then
+		local traitInfo = TraitsModule.Traits[traitName]
+		local traitColorInfo = TraitsModule.TraitColors[traitInfo.Rarity]
+		local traitGradient = traitColorInfo and traitColorInfo.Gradient
+		local traitIcon = UnitTraitText:FindFirstChild("Icon")
+		local textGradient = UnitTraitText:FindFirstChildOfClass("UIGradient")
+
+		UnitTraitText.Visible = true
+		UnitTraitText.Text = traitName
+
+		if textGradient and traitGradient then
+			textGradient.Color = traitGradient
+		end
+
+		if traitIcon and traitIcon:IsA("ImageLabel") then
+			traitIcon.Visible = true
+			traitIcon.Image = traitInfo.ImageID
+
+			local iconGradient = traitIcon:FindFirstChildOfClass("UIGradient")
+			if iconGradient and traitGradient then
+				iconGradient.Color = traitGradient
+			end
+		end
+	else
+		UnitTraitText.Visible = false
+		local traitIcon = UnitTraitText:FindFirstChild("Icon")
+		if traitIcon and traitIcon:IsA("ImageLabel") then
+			traitIcon.Visible = false
+		end
+	end
 
 	local craftColor = getRarityColor(finalRarity)
 	local craftBg = CraftFrame:FindFirstChild("Bg")

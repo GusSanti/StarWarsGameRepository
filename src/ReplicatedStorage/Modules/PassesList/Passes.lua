@@ -14,7 +14,7 @@ local Passes = {
 		return true
 	end,
 
-	[1073932053] = function(Player)	--Extra Storage
+	[1883447034] = function(Player)	--Extra Storage
 		Player.OwnGamePasses["Extra Storage"].Value = true
 		Player.MaxUnits.Value = 250
 
@@ -34,7 +34,7 @@ local Passes = {
 
 		return true
 	end,
-	[1075876861] = function(Player)	--VIP
+	[1882847010] = function(Player)	--VIP
 		Player.OwnGamePasses["VIP"].Value = true
 
 		local character = Player.Character
@@ -63,7 +63,7 @@ local Passes = {
 		return true
 	end,
 
-	[1124382194] = function(Player)	--Shiny Hunter
+	[1881161567] = function(Player)	--Shiny Hunter
 		Player.OwnGamePasses["Shiny Hunter"].Value = true
 
 		local userId = Player.UserId
@@ -82,7 +82,7 @@ local Passes = {
 
 		return true
 	end,
-	[1076274359] = function(Player)	--Display 3 Units
+	[1884461005] = function(Player)	--Display 3 Units
 		Player.OwnGamePasses["Display 3 Units"].Value = true
 
 		local userId = Player.UserId
@@ -101,7 +101,7 @@ local Passes = {
 
 		return true
 	end,
-	[1073834237] = function(Player)	--x2 gems
+	[1883567052] = function(Player)	--x2 gems
 		Player.OwnGamePasses["x2 Gems"].Value = true
 
 		local userId = Player.UserId
@@ -120,7 +120,7 @@ local Passes = {
 
 		return true
 	end,
-	[1129844558] = function(Player) -- Ultra VIP
+	[1884281000] = function(Player) -- Ultra VIP
 		print("Run")
 		Player.OwnGamePasses["Ultra VIP"].Value = true
 
@@ -149,7 +149,7 @@ local Passes = {
 
 		return true
 	end,
-	[1131208944] = function(Player) --2x Player XP
+	[1882433122] = function(Player) --2x Player XP
 		Player.OwnGamePasses["2x Player XP"].Value = true
 
 		local userId = Player.UserId
@@ -168,7 +168,7 @@ local Passes = {
 
 		return true
 	end,
-	[1130276690] = function(Player) --2x Speed
+	[1883567051] = function(Player) --2x Speed
 		Player.OwnGamePasses["2x Speed"].Value = true
 
 		local userId = Player.UserId
@@ -187,7 +187,7 @@ local Passes = {
 
 		return true
 	end,
-	[1131922338] = function(Player) --3x Speed
+	[1882781048] = function(Player) --3x Speed
 		Player.OwnGamePasses["3x Speed"].Value = true
 
 		local userId = Player.UserId
@@ -207,7 +207,7 @@ local Passes = {
 		return true
 	end,
 
-	[1187899261] = function(Player) -- 2x Luck 
+	[1883201060] = function(Player) -- 2x Luck 
 		Player.OwnGamePasses["x2 Luck"].Value = true
 		local userId = Player.UserId
 		local amount = 899
@@ -226,7 +226,7 @@ local Passes = {
 		return true
 	end,
 
-	[1230556266] = function(Player)
+	[1883231050] = function(Player)
 		Player.OwnGamePasses["2x Willpower Luck"].Value = true 
 		local userId = Player.UserId
 		local amount = 699
@@ -245,7 +245,7 @@ local Passes = {
 		return true
 	end,
 
-	[1188001268] = function(Player) -- 2x Raid 
+	[1882673092] = function(Player) -- 2x Raid 
 		Player.OwnGamePasses["x2 Raid Luck"].Value = true
 		local userId = Player.UserId
 		local amount = 399

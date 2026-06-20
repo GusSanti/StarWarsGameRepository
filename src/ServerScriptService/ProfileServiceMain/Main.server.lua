@@ -30,6 +30,7 @@ local WillpowerConfig = BalanceConfig.Willpower or {
 local CosmeticModule = require(ReplicatedStorage.Modules.Cosmetic)
 local GlobalFunctions = require(ReplicatedStorage.Modules.GlobalFunctions)
 local Market = require(game.ServerStorage.ServerModules.Market)
+local ProfileTeleportCoordinator = require(ServerStorage.ServerModules.ProfileTeleportCoordinator)
 local DailyReward = require(ReplicatedStorage.Modules.DailyReward)
 local SafeTeleport = require(game.ServerScriptService.SafeTeleport)
 local DeleteTakedownsAttribute = ReplicatedStorage.Events.DeleteTakedownsAttribute
@@ -425,7 +426,7 @@ local function DeepLoadDataToInstances(data, parentTo)
 					for _, towerData in teamData do
 						local attributes = {"Level","Exp","Trait","Equipped","Locked","UniqueID","EquippedSlot","TimeObtained","Shiny","Takedowns"}
 						print(towerData, index)
-						local newTower = _G.createTower(folder,towerData["TowerName"],nil,{Shiny=towerData["Shiny"],TimeObtained=towerData["TimeObtained"],LoadingData = true})
+						local newTower = _G.createTower(teamFolder,towerData["TowerName"],nil,{Shiny=towerData["Shiny"],TimeObtained=towerData["TimeObtained"],LoadingData = true})
 						for j, attribute in attributes do
 							if towerData[attribute] then
 								if attribute == 'Trait' then
@@ -764,11 +765,14 @@ game.Players.PlayerAdded:Connect(function(player)
 		--print(profile)
 		profile:Reconcile() -- Fill in missing variables from ProfileTemplate (optional)
 		profile:ListenToRelease(function()
-			if player:FindFirstChild("DataLoaded") then
+			local intentionalTeleport = player:GetAttribute("TeleportingBetweenPlaces") == true
+			if not intentionalTeleport and player:FindFirstChild("DataLoaded") then
 				player.DataLoaded:Destroy()
 			end
 			Profiles[player] = nil
-			player:Kick()
+			if not intentionalTeleport then
+				player:Kick()
+			end
 		end)
 
 		if player:IsDescendantOf(Players) then
@@ -1030,6 +1034,7 @@ end)
 local debounce = false
 local dictionaryFolders = {}
 local TUTORIAL_LOBBY_REENTRY_STEP = 8
+local TELEPORT_RELEASE_TIMEOUT = 10
 
 local function prepareTutorialStateForSave(player)
 	local tutorialStarted = player:FindFirstChild("TutorialStarted")
@@ -1060,6 +1065,89 @@ local function prepareTutorialStateForSave(player)
 		end
 	end
 end
+
+local function snapshotProfileForTeleport(player, profile)
+	local ServerJoined = player:FindFirstChild("ServerJoined")
+	if ServerJoined then
+		player.TimeSpent.Value += (os.time() - ServerJoined.Value)
+		ServerJoined.Value = os.time()
+	end
+
+	prepareTutorialStateForSave(player)
+
+	local dat = DeepSaveInstancesToData(player:GetChildren(), 0, true)
+	if #dat ~= 0 then
+		dat = HistoryLoggingService.log(dat, false)
+		profile.Data = dat
+	end
+end
+
+ProfileTeleportCoordinator.setReleaseHandler(function(playersToRelease, onReady)
+	local releaseTargets = {}
+	for _, player in playersToRelease do
+		if typeof(player) ~= "Instance" or not player:IsA("Player") or player.Parent ~= Players then
+			continue
+		end
+
+		local profile = Profiles[player]
+		if profile and profile:IsActive() then
+			table.insert(releaseTargets, {
+				Player = player,
+				Profile = profile,
+			})
+		end
+	end
+
+	if #releaseTargets == 0 then
+		if typeof(onReady) == "function" then
+			onReady()
+		end
+		return
+	end
+
+	local completed = false
+	local remaining = #releaseTargets
+
+	local function finish()
+		if completed then
+			return
+		end
+
+		completed = true
+		if typeof(onReady) == "function" then
+			onReady()
+		end
+	end
+
+	task.delay(TELEPORT_RELEASE_TIMEOUT, function()
+		if not completed then
+			warn("Profile release timed out before teleport; continuing with best effort")
+			finish()
+		end
+	end)
+
+	for _, releaseData in releaseTargets do
+		local player = releaseData.Player
+		local profile = releaseData.Profile
+		player:SetAttribute("TeleportingBetweenPlaces", true)
+		snapshotProfileForTeleport(player, profile)
+
+		local hopConnection
+		hopConnection = profile:ListenToHopReady(function()
+			if hopConnection then
+				hopConnection:Disconnect()
+				hopConnection = nil
+			end
+
+			remaining -= 1
+			if remaining <= 0 then
+				finish()
+			end
+		end)
+
+		profile:Release()
+	end
+end)
 
 Players.PlayerRemoving:Connect(function(player)
 	local profile = Profiles[player]
@@ -1841,6 +1929,19 @@ local function GetRandomLegendary()
 	return weightedTraits[#weightedTraits].trait 
 end
 
+local function canRollWillpowerOnTower(player, tower)
+	if typeof(tower) ~= "Instance" then
+		return false, "Invalid unit selection."
+	end
+
+	local ownedTowers = player:FindFirstChild("OwnedTowers")
+	if not ownedTowers or tower.Parent ~= ownedTowers then
+		return false, "Select one of your units to reroll."
+	end
+
+	return true
+end
+
 
 Functions.BuyTrait.OnServerInvoke = function(player, tower, isluckyRoll)
 	warn(isluckyRoll)
@@ -1851,21 +1952,40 @@ Functions.BuyTrait.OnServerInvoke = function(player, tower, isluckyRoll)
 				debounces[player.Name]["Trait"] = false
 			end)
 
+			local canRoll, rollError = canRollWillpowerOnTower(player, tower)
+			if not canRoll then
+				return rollError
+			end
 
 			local LuckyTrait = nil
 
 			if isluckyRoll then
-				if player:FindFirstChild("LuckyWillpower").Value >= 1 then
-					player:FindFirstChild("LuckyWillpower").Value -= 1
+				local luckyWillpower = player:FindFirstChild("LuckyWillpower")
+				if not luckyWillpower or luckyWillpower.Value < 1 then
+					return "Not enough Lucky Willpower!"
+				end
+
+				luckyWillpower.Value -= 1
+				if tower.Parent ~= player.OwnedTowers then
+					luckyWillpower.Value += 1
+					return "Select one of your units to reroll."
+				end
+
 					LuckyTrait = ChanceModule.chooseRandomTrait(player, isluckyRoll)
+					if not LuckyTrait then
+						luckyWillpower.Value += 1
+						return "Failed to roll a Willpower trait."
+					end
+
 					tower:SetAttribute("Trait", LuckyTrait)
+					ReplicatedStorage.Events.UpdateInventory:FireClient(player)
 					warn("Pick LuckyRoll")
 					return LuckyTrait
-				end
 			end
 
 
-			if player.TraitPoint.Value >= 1 then
+			local traitPoint = player:FindFirstChild("TraitPoint")
+			if traitPoint and traitPoint.Value >= 1 then
 				local Legendary = player:FindFirstChild("LegendaryPityWP")
 				local Mythical = player:FindFirstChild("MythicalPityWP")
 				local legendaryPityRequired = WillpowerConfig.LegendaryPityRequired
@@ -1880,7 +2000,7 @@ Functions.BuyTrait.OnServerInvoke = function(player, tower, isluckyRoll)
 					local pityTrait = GetRandomMythic()
 					if pityTrait then
 						tower:SetAttribute("Trait", pityTrait)
-						player.TraitPoint.Value -= 1
+						traitPoint.Value -= 1
 						ReplicatedStorage.Events.UpdateInventory:FireClient(player)
 						--TraitsModule.UpdateVisualAura(tower, newTrait)
 					end
@@ -1894,7 +2014,7 @@ Functions.BuyTrait.OnServerInvoke = function(player, tower, isluckyRoll)
 					local pityTrait = GetRandomLegendary()
 					if pityTrait then
 						tower:SetAttribute("Trait", pityTrait)
-						player.TraitPoint.Value -= 1
+						traitPoint.Value -= 1
 						ReplicatedStorage.Events.UpdateInventory:FireClient(player)
 						--TraitsModule.UpdateVisualAura(tower, newTrait)
 					end
@@ -1937,11 +2057,13 @@ Functions.BuyTrait.OnServerInvoke = function(player, tower, isluckyRoll)
 
 					if newTrait then
 						tower:SetAttribute("Trait", newTrait)
-						player.TraitPoint.Value -= 1
+						traitPoint.Value -= 1
 						ReplicatedStorage.Events.UpdateInventory:FireClient(player)
 						--TraitsModule.UpdateVisualAura(tower, newTrait)
 						return newTrait
 					end
+
+					return "Failed to roll a Willpower trait."
 				end
 			else
 				return "Not enough Trait Points!"

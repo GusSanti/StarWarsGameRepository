@@ -1,3 +1,11 @@
+local PassesList = require(script.Parent.PassesList)
+local MarketInfo = PassesList.Information
+
+local function getProductId(productName)
+	local info = MarketInfo[productName]
+	return info and info.Id or nil
+end
+
 return {
 	Gems = {
 		{
@@ -5,7 +13,7 @@ return {
 			Value = 50,
 			Price = 50,
 			Discount = "",
-			ProductID = 3221509781,
+			ProductID = getProductId("Mini Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=107010136394116"
 		},
 		{
@@ -13,7 +21,7 @@ return {
 			Value = 250,
 			Price = 220,
 			Discount = "+14% More",
-			ProductID = 3221510072,
+			ProductID = getProductId("Small Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=89345973827883"
 		},
 		{
@@ -21,7 +29,7 @@ return {
 			Value = 475,
 			Price = 375,
 			Discount = "+27% More",
-			ProductID = 3221510368,
+			ProductID = getProductId("Medium Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=89345973827883"
 		},
 		{
@@ -29,7 +37,7 @@ return {
 			Value = 975,
 			Price = 600,
 			Discount = "+54% More",
-			ProductID = 3221510579,
+			ProductID = getProductId("Large Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=87821053230387"
 		},
 		{
@@ -37,7 +45,7 @@ return {
 			Value = 2000,
 			Price = 999,
 			Discount = "+100% More",
-			ProductID = 3221510847,
+			ProductID = getProductId("Huge Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=89442390259942"
 		},
 		{
@@ -45,7 +53,7 @@ return {
 			Value = 5000,
 			Price = 1999,
 			Discount = "+150% More",
-			ProductID = 3221511117,
+			ProductID = getProductId("Massive Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=135473840229986"
 		},
 		{
@@ -53,7 +61,7 @@ return {
 			Value = 10000,
 			Price = 3499,
 			Discount = "+200% More",
-			ProductID = 3221511460,
+			ProductID = getProductId("Colossal Pack"),
 			ImageID = "http://www.roblox.com/asset/?id=97040419437626"
 		},
     },
@@ -63,7 +71,7 @@ return {
             Value = 50,
             Price = 50,
             Discount = "",
-            ProductID = 3221509781,
+            ProductID = getProductId("Mini Pack"),
             ImageID = "http://www.roblox.com/asset/?id=107010136394116"
         },
         {
@@ -71,7 +79,7 @@ return {
             Value = 250,
             Price = 220,
             Discount = "+14% More",
-            ProductID = 3221510072,
+            ProductID = getProductId("Small Pack"),
             ImageID = "http://www.roblox.com/asset/?id=89345973827883"
         },
         {
@@ -79,7 +87,7 @@ return {
             Value = 475,
             Price = 375,
             Discount = "+27% More",
-            ProductID = 3221510368,
+            ProductID = getProductId("Medium Pack"),
             ImageID = "http://www.roblox.com/asset/?id=89345973827883"
         },
         {
@@ -87,7 +95,7 @@ return {
             Value = 975,
             Price = 600,
             Discount = "+54% More",
-            ProductID = 3221510579,
+            ProductID = getProductId("Large Pack"),
             ImageID = "http://www.roblox.com/asset/?id=87821053230387"
         },
     },
@@ -95,25 +103,25 @@ return {
 		{
 			Name = "Lucky Crystal",
 			Value = 1,
-			ProductID = 3221514284
+			ProductID = getProductId("Lucky Crystal")
 		},
 		{
 			Name = "Fortunate Crystal",
 			Value = 1,
-			ProductID = 3221514046
+			ProductID = getProductId("Fortunate Crystal")
 		}
 	},
 	TraitPoint = {
 		{
 			Name = "1",
 			Value = 1,
-			ProductID = 3221515245
+			ProductID = getProductId("LuckyWillpower")
 		}
 	},
 	Packs = {
 		{
 			Name = "Starter Pack",
-			ProductID = 13600173502,
+			ProductID = getProductId("Starter Pack"),
 		},
 	},
 }

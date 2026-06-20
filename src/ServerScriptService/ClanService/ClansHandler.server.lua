@@ -10,12 +10,14 @@ local ClanLib = require(script.ClanLib)
 local ClanPermissions = require(ReplicatedStorage.ClansLib.ClanPermissions)
 local ClanTags = require(ReplicatedStorage.ClansLib.ClanTags)
 local InviteLib = require(script.InviteLib)
+local PassesList = require(ReplicatedStorage.Modules.PassesList)
 local UpdateNameTag = (ServerScriptService:FindFirstChild('Nametag') and ServerScriptService.Nametag.Apply) or ServerScriptService.GameMechanics.Nametag.Apply
 
 
 local ClanUpgradeCalculation = require(ReplicatedStorage.ClansLib.ClanUpgradeCalculation)
 local MessagingLib = require(script.MessagingLib)
 local ClanLeaderboardQueue = require(ServerScriptService.ClanService.ClanLoader.ClanLeaderboardQueue)
+local ClanCreationTokenInfo = PassesList.Information["Clan Creation Token"]
 
 
 local function isDataLoaded(plr)
@@ -43,8 +45,14 @@ local function createClan(plr, clanName, clanDescription, clanEmblem, method)
 		if plr.Gems.Value < 100000 then return 'You need 100,000 Gems!' end
 	else
 		-- Prompt Developer Product Purchase
-		-- prompt: 3295256092
-		if plr.ClanData.CreationTokens.Value == 0 then MarketplaceService:PromptProductPurchase(plr, 3295256092) return end
+		if plr.ClanData.CreationTokens.Value == 0 then
+			if not ClanCreationTokenInfo then
+				return "Clan Creation Token product is not configured."
+			end
+
+			MarketplaceService:PromptProductPurchase(plr, ClanCreationTokenInfo.Id)
+			return
+		end
 	end
 
 	if #clanName < 3 then return "Your clan name is too short!" end

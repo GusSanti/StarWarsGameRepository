@@ -34,17 +34,17 @@ local module = {
 	},
 
 	["2x Speed"] = {
-		Id = 1130276690,
+		Id = 1883567051,
 		GiftId = 3250930885,
 		IsGamePass = true
 	},
 	["3x Speed"] = {
-		Id = 1131922338,
+		Id = 1882781048,
 		GiftId = 3250931174,
 		IsGamePass = true
 	},
 	["2x Player XP"] = {
-		Id = 1131208944,
+		Id = 1882433122,
 		GiftId = 3250425539,
 		IsGamePass = true
 	},
@@ -64,12 +64,12 @@ local module = {
 		IsGamePass = false
 	},
 	["Extra Storage"] = {
-		Id = 1073932053,
+		Id = 1883447034,
 		GiftId = 3221502849,
 		IsGamePass = true
 	},
 	["VIP"] = {
-		Id = 1075876861,
+		Id = 1882847010,
 		GiftId = 3221502483,
 		IsGamePass = true
 	},
@@ -86,17 +86,17 @@ local module = {
 		OneTimePurchase = true
 	},
 	["Ultra VIP"] = {
-		Id = 1129844558,
+		Id = 1884281000,
 		GiftId = 3250370990,
 		IsGamePass = true
 	},
 	["Shiny Hunter"] = {
-		Id = 1124382194,
+		Id = 1881161567,
 		GiftId = 3249453567,
 		IsGamePass = true
 	},
 	["Display 3 Units"] = {
-		Id = 1076274359,
+		Id = 1884461005,
 		GiftId = 3221504033,
 		IsGamePass = true
 	},
@@ -202,7 +202,7 @@ local module = {
 		OneTimePurchase = true,
 	},
 	["x2 Gems"] = {
-		Id = 1073834237,
+		Id = 1883567052,
 		GiftId = 3221507404,
 		IsGamePass = true
 	},
@@ -257,13 +257,13 @@ local module = {
 	},
 
 	['x2 Luck'] = {
-		Id = 1187899261,
+		Id = 1883201060,
 		GiftId = 3276861468,
 		IsGamePass = true,
 	},
 
 	['x2 Raid Luck'] = {
-		Id = 1188001268,
+		Id = 1882673092,
 		GiftId = 3276861682,
 		IsGamePass = true
 	},
@@ -288,7 +288,7 @@ local module = {
 		IsGamePass = false
 	},
 	['2x Willpower Luck'] = {
-		Id = 1230556266,
+		Id = 1883231050,
 		GiftId = 3290974579,
 		IsGamePass = true
 	},

@@ -24,9 +24,9 @@ local ItemImages = {
 }
 
 local skipProducts = {
-	[1] = {Normal = 3279744329, Gift = 3281245102},
-	[5] = {Normal = 3286932503, Gift = 3286932640},
-	[10] = {Normal = 3279744407, Gift = 3280425048},
+	[1] = "Skip 1 Tier",
+	[5] = "Skip 5 Tiers",
+	[10] = "Skip 10 Tiers",
 }
 
 -- VARIABLES
@@ -44,6 +44,7 @@ local ClaimQuestReward = ReplicatedStorage.Remotes.Quests.ClaimQuestReward
 local Functions = ReplicatedStorage:WaitForChild("Functions")
 local GetMarketInfoByName = Functions:WaitForChild("GetMarketInfoByName")
 local BuyEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Buy")
+local marketInfoCache = {}
 
 local bpData = player.BattlepassData
 
@@ -73,6 +74,18 @@ local Season = BpConfig.GetSeason()
 local Tiers = BpConfig.Tiers[Season]
 local lastInfTier = bpData.Tier.Value
 local showingQuests = false
+
+local function getMarketInfo(name)
+	if not name then
+		return nil
+	end
+
+	if marketInfoCache[name] == nil then
+		marketInfoCache[name] = GetMarketInfoByName:InvokeServer(name)
+	end
+
+	return marketInfoCache[name]
+end
 
 -- FUNCTIONS
 local function preloadImages()
@@ -458,12 +471,18 @@ for _, skipFrame in ipairs(PurchasesContents:GetChildren()) do
 		local skipAmount = tonumber(skipFrame.Name:match("%d+"))
 		if skipAmount and skipProducts[skipAmount] then
 			skipFrame.Button.Btn.Activated:Connect(function()
-				MPS:PromptProductPurchase(player, skipProducts[skipAmount].Normal)
+				local info = getMarketInfo(skipProducts[skipAmount])
+				if info then
+					MPS:PromptProductPurchase(player, info.Id)
+				end
 			end)
 			local btnGift = skipFrame:FindFirstChild("ButtomGift")
 			if btnGift then
 				btnGift.Activated:Connect(function()
-					MPS:PromptProductPurchase(player, skipProducts[skipAmount].Gift)
+					local info = getMarketInfo(skipProducts[skipAmount])
+					if info and info.GiftId then
+						MPS:PromptProductPurchase(player, info.GiftId)
+					end
 				end)
 			end
 		end
@@ -471,7 +490,7 @@ for _, skipFrame in ipairs(PurchasesContents:GetChildren()) do
 end
 
 task.spawn(function()
-	local info = GetMarketInfoByName:InvokeServer("Premium Battlepass")
+	local info = getMarketInfo("Premium Battlepass")
 	if info then
 		PremiumOverlay.Contents.Buy.Activated:Connect(function()
 			BuyEvent:FireServer(info.Id)

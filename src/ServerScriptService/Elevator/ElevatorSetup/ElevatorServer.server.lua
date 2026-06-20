@@ -8,6 +8,7 @@ local SafeTeleport = require(ServerScriptService.SafeTeleport)
 local StoryModeStats = require(ReplicatedStorage.StoryModeStats)
 local AllFunc = require(ReplicatedStorage.Modules.VFX_Helper)
 local PlaceData = require(game.ServerStorage.ServerModules.PlaceData)
+local ProfileTeleportCoordinator = require(game.ServerStorage.ServerModules.ProfileTeleportCoordinator)
 
 local WasMessage = false
 
@@ -140,6 +141,10 @@ local function TeleportPlayers()
 	local server = TeleportService:ReserveServerAsync(placeId)
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = server
+	local teleportGroup = {}
+	for _, waitingPlayer in playersWaiting do
+		table.insert(teleportGroup, waitingPlayer)
+	end
 	local ownerPlayer = game.Players:FindFirstChild(script.Parent.Owner.Value)
 	local ownerId = ownerPlayer and ownerPlayer.UserId or nil
 	for i,v in pairs(playersWaiting) do
@@ -147,7 +152,9 @@ local function TeleportPlayers()
 	end
 
 	options:SetTeleportData({World = script.Parent.World.Value,Level = script.Parent.Level.Value,Mode = script.Parent.Mode.Value, OwnerId = ownerId})
-	SafeTeleport(placeId, playersWaiting, options)
+	ProfileTeleportCoordinator.releasePlayersForTeleport(teleportGroup, function()
+		SafeTeleport(placeId, teleportGroup, options)
+	end)
 	print("Finished teleport")
 end
 

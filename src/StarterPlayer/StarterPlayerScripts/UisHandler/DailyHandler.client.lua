@@ -3,9 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 
--- CONSTANTS
-local SKIP_DAY_PRODUCT_ID = 3305696523
-
 -- VARIABLES
 local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
@@ -21,6 +18,7 @@ local SkipDayBtn = DailyUI:WaitForChild("Days"):WaitForChild("SkipADay")
 
 local DailyReward = require(ReplicatedStorage.Modules.DailyReward)
 local ClaimReward = ReplicatedStorage.Functions.ClaimReward
+local GetMarketInfoByName = ReplicatedStorage.Functions.GetMarketInfoByName
 local ViewModule = require(ReplicatedStorage.Modules.ViewModule)
 local Upgrades = require(ReplicatedStorage.Upgrades)
 local UiHandler = require(ReplicatedStorage.Modules.Client.UIHandler)
@@ -198,6 +196,8 @@ end
 -- INIT
 Player:WaitForChild("DataLoaded")
 
+local skipDayInfo = GetMarketInfoByName:InvokeServer("SkipADay")
+
 for i = 1, 6 do
 	local slot = SlotsContents:FindFirstChild(tostring(i))
 	if slot then
@@ -216,5 +216,7 @@ end)
 
 
 SkipDayBtn.Activated:Connect(function()
-	MarketplaceService:PromptProductPurchase(Player, SKIP_DAY_PRODUCT_ID)
+	if skipDayInfo then
+		MarketplaceService:PromptProductPurchase(Player, skipDayInfo.Id)
+	end
 end)

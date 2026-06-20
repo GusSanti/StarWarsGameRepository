@@ -41,6 +41,7 @@ local Functions = ReplicatedStorage:WaitForChild("Functions")
 local GetMarketInfoByName = Functions:WaitForChild("GetMarketInfoByName")
 local BuyEvent = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Buy")
 local CheckIfExists = Functions:WaitForChild("BuyNowWP")
+local LuckyWillpowerInfo = GetMarketInfoByName:InvokeServer("LuckyWillpower")
 
 -- Módulos
 local UIHandlerModule = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Client"):WaitForChild("UIHandler"))
@@ -89,8 +90,11 @@ local function updateWillpowerPityBars()
 	local mythicalPity = player:FindFirstChild("MythicalPityWP")
 	local legendaryPity = player:FindFirstChild("LegendaryPityWP")
 	local pityBars = WillpowerFrameBase.Frame:WaitForChild("Pity_Bars")
-	local mythicalFrame = pityBars:WaitForChild("Mythical_Pity")
-	local legendaryFrame = pityBars:WaitForChild("Legendar yPity")
+	local mythicalFrame = pityBars:FindFirstChild("Mythical_Pity") or pityBars:FindFirstChild("MythicalPity")
+	local legendaryFrame = pityBars:FindFirstChild("Legendary_Pity") or pityBars:FindFirstChild("LegendaryPity") or pityBars:FindFirstChild("Legendar yPity")
+	if not mythicalFrame or not legendaryFrame then
+		return
+	end
 	local mythicalRequired = WillpowerPityConfig.MythicalPityRequired
 	local legendaryRequired = WillpowerPityConfig.LegendaryPityRequired
 	local mythicalCurrent = mythicalPity and mythicalPity.Value or 0
@@ -661,6 +665,9 @@ local function Reroll(LuckyRoll)
 				return rarity, trait
 			else
 				mythicalpluscooldown = false
+				if type(trait) == "string" and trait ~= "" then
+					_G.Message(trait, Color3.new(0.776471, 0.239216, 0.239216))
+				end
 				UIHandlerModule.PlaySound("Error")
 				return nil
 			end
@@ -796,7 +803,9 @@ populateNewWillpowerPanels = function()
 	connectGuiAction(robuxRerollButtonRoot, "WillpowerLuckyConnected", "RobuxRerollButton", function()
 		local Check = CheckIfExists:InvokeServer("LuckyWillpower")
 		if not Check then
-			MarketplaceService:PromptProductPurchase(player, 3221515245)
+			if LuckyWillpowerInfo then
+				MarketplaceService:PromptProductPurchase(player, LuckyWillpowerInfo.Id)
+			end
 		else
 			Reroll(true)
 		end
@@ -878,9 +887,10 @@ SelectedTower.Changed:Connect(function()
 	updatePrice(SelectedTower.Value)
 
 	if SelectedTower.Value then
-		selectedTowerTraitChangedConnection = SelectedTower.Value:GetAttributeChangedSignal("Trait"):Connect(function()
-			if SelectedTower.Value ~= SelectedTower.Value then return end
-			updatePrice(SelectedTower.Value)
+		local observedTower = SelectedTower.Value
+		selectedTowerTraitChangedConnection = observedTower:GetAttributeChangedSignal("Trait"):Connect(function()
+			if SelectedTower.Value ~= observedTower then return end
+			updatePrice(observedTower)
 			updateNewWillpowerProfile()
 			updateNewWillpowerStatusEffects()
 		end)
@@ -900,6 +910,7 @@ SelectedTower.Changed:Connect(function()
 		UnitFrame.Text_Container.Unit_Level.Text = SelectedTower.Value:GetAttribute("Level")
 		UnitFrame.Plus.Transparency = 1
 		UnitFrame.Plus.UIStroke.Transparency = 1
+		UnitFrame.Indicator.ImageLabel.Visible = false
 
 		if player:FindFirstChild("OwnGamePasses"):FindFirstChild("2x Willpower Luck").Value == true or player:FindFirstChild("Buffs"):FindFirstChild("WillpowerLuckyCrystal") then
 			UnitFrame.Indicator.ImageLabel.Visible = true
@@ -1011,7 +1022,9 @@ RobuxReroll.MouseButton1Down:Connect(function()
 	task.spawn(function()
 		local Check = CheckIfExists:InvokeServer("LuckyWillpower")
 		if not Check then
-			MarketplaceService:PromptProductPurchase(player,3221515245)
+			if LuckyWillpowerInfo then
+				MarketplaceService:PromptProductPurchase(player, LuckyWillpowerInfo.Id)
+			end
 		else
 			Reroll(true)
 		end
@@ -1020,8 +1033,8 @@ end)
 
 MarketplaceService.PromptProductPurchaseFinished:Connect(function(userID,productID,isPurchase)
 	if userID ~= player.UserId then return end
-	if not isPurchase or productID ~= 3221515245 then return end
-	Reroll()
+	if not isPurchase or not LuckyWillpowerInfo or productID ~= LuckyWillpowerInfo.Id then return end
+	Reroll(true)
 end)
 
 MainFrame.X_Close.Activated:Connect(function()

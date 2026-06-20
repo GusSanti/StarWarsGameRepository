@@ -77,6 +77,19 @@ end)
 
 local module = {}
 
+local OwnedProductFlagAliases = {
+	["Cad Bunny Bundle"] = {"Cad Bunny Bundle", "Anakin"},
+}
+
+local function getOwnedProductFlagNames(productName)
+	local aliasNames = OwnedProductFlagAliases[productName]
+	if aliasNames then
+		return aliasNames
+	end
+
+	return {productName}
+end
+
 local function getRewardRarityPriority(rarityName)
 	return RewardRarityPriority[rarityName] or 0
 end
@@ -371,7 +384,28 @@ local function getOwnedProductFlag(player, productName)
 		return nil
 	end
 
-	return ownGamePasses:FindFirstChild(productName)
+	for _, flagName in ipairs(getOwnedProductFlagNames(productName)) do
+		local ownedFlag = ownGamePasses:FindFirstChild(flagName)
+		if ownedFlag then
+			return ownedFlag
+		end
+	end
+
+	return nil
+end
+
+local function setOwnedProductFlag(player, productName, ownedValue)
+	local ownGamePasses = player and player:FindFirstChild("OwnGamePasses")
+	if not ownGamePasses then
+		return
+	end
+
+	for _, flagName in ipairs(getOwnedProductFlagNames(productName)) do
+		local ownedFlag = ownGamePasses:FindFirstChild(flagName)
+		if ownedFlag and ownedFlag:IsA("BoolValue") then
+			ownedFlag.Value = ownedValue == true
+		end
+	end
 end
 
 local function playerOwnsProduct(player, productName, productInfo)
@@ -515,6 +549,10 @@ function module.ProcessReceipt(ReceiptInfo)
 
 		if not functionResult then
 			warn("Reward function didn't explicitly return true — assuming success anyway")
+		end
+
+		if ProductInfo.OneTimePurchase then
+			setOwnedProductFlag(targetPlayer, ProductName, true)
 		end
 
 		spawn(function()

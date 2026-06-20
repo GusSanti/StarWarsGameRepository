@@ -112,8 +112,11 @@ return {
 
 		["Starter Bundle"] = false,
 		["Supreme Bundle"] = false,
+		["Buy Brawl Pass"] = false,
+		["Droid Starter Kit"] = false,
 		["Fawn"] = false,
 		["Shiny Fawn"] = false,
+		["Cad Bunny Bundle"] = false,
 		["Anakin"] = false,
 		["Dartwader"] = false
 	},

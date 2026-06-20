@@ -387,7 +387,7 @@ local function SetupPassFrame(frame)
 		local success, result = pcall(function()
 			return MarketplaceService:GetProductInfo(
 				info.Id,
-				info.IsGamepass and Enum.InfoType.GamePass or Enum.InfoType.Product
+				info.IsGamePass and Enum.InfoType.GamePass or Enum.InfoType.Product
 			)
 		end)
 		if success and result and result.PriceInRobux and label then
@@ -469,7 +469,7 @@ local function SetupBundleFrame(frame, config)
 		local success, result = pcall(function()
 			return MarketplaceService:GetProductInfo(
 				info.Id,
-				info.IsGamepass and Enum.InfoType.GamePass or Enum.InfoType.Product
+				info.IsGamePass and Enum.InfoType.GamePass or Enum.InfoType.Product
 			)
 		end)
 
