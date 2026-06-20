@@ -8,6 +8,7 @@ local TraitsModule = require(ReplicatedStorage.Modules.Traits)
 local Upgrades = require(ReplicatedStorage.Upgrades)
 local ViewModule = require(ReplicatedStorage.Modules.ViewModule)
 local MarketModule = require(ReplicatedStorage.Modules.MarketModule)
+local PassesList = require(ReplicatedStorage.Modules.PassesList)
 local itemStatsModule = require(ReplicatedStorage:WaitForChild("ItemStats"))
 local GetUnitModel = require(ReplicatedStorage.Modules.GetUnitModel)
 local GradientsModule = require(ReplicatedStorage.Modules.GradientsModule)
@@ -36,6 +37,8 @@ local autoSummonSessionActive = false
 local autoSummonSessionSummary = nil
 local SUMMON_DEBUG_LOGS_ENABLED = false
 local isPlayerInsideSummonZone = false
+local SINGLE_LUCKY_SUMMON_PRODUCT_ID = PassesList.Information["1 Lucky Summon"] and PassesList.Information["1 Lucky Summon"].Id or nil
+local pendingLuckySummonFallbackPurchase = false
 
 local SecretUnit1 = "Anekan Skaivoker"
 local SecretUnit2 = "Palpotin"
@@ -1657,7 +1660,33 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 	NewUIBlur.Enabled = true
 end
 
+local function promptSingleLuckySummonPurchase()
+	if not SINGLE_LUCKY_SUMMON_PRODUCT_ID then
+		UiHandler.PlaySound("Error")
+		_G.Message("Lucky Summon product is not configured.", Color3.fromRGB(221, 0, 0))
+		return
+	end
 
+	pendingLuckySummonFallbackPurchase = true
+	MarketPlaceService:PromptProductPurchase(player, SINGLE_LUCKY_SUMMON_PRODUCT_ID)
+end
+
+local function handleLuckySummonButton()
+	if player.LuckySpins.Value > 0 then
+		summon(1, nil, true)
+		return
+	end
+
+	promptSingleLuckySummonPurchase()
+end
+
+local function restoreSummonMenuAfterLuckyPurchase()
+	setSummonVisible(true)
+
+	if isPlayerInsideSummonZone then
+		UiHandler.DisableAllButtons()
+	end
+end
 
 local ForceSummon = ReplicatedStorage.Remotes.ForceSummon
 local Functions = ReplicatedStorage.Functions
@@ -1714,7 +1743,7 @@ local function wireNewSummonButtons()
 
 	connectGuiButtonOnce(findChildPath(newSummons, {"Body", "Closebtn", "Btn"}), "SummonCloseBound", closeSummonMenu)
 	connectGuiButtonOnce(findFirstGuiButton(findChildPath(newSummons, {"Body", "Main", "Banner", "Buttons", "1"})), "SummonLuckyBound", function()
-		summon(1, nil, true)
+		handleLuckySummonButton()
 	end)
 	connectGuiButtonOnce(findFirstGuiButton(findChildPath(newSummons, {"Body", "Main", "Banner", "Buttons", "2"})), "Summon1xBound", function()
 		summon(1)
@@ -1767,7 +1796,9 @@ end)
 SummonFrame.Banner.Bottom_Bar.Bottom_Bar.Summon_1x.Activated:Connect(function() summon(1) end)
 SummonFrame.Banner.Bottom_Bar.Bottom_Bar.Summon_10x.Activated:Connect(function() summon(10) end)
 SummonFrame.Banner.Summon_Holocron.Activated:Connect(function() summon(1,true) end)
-SummonFrame.Banner.Bottom_Bar.Bottom_Bar.Lucky_Summons.Activated:Connect(function() summon(1, nil, true) end)
+SummonFrame.Banner.Bottom_Bar.Bottom_Bar.Lucky_Summons.Activated:Connect(function()
+	handleLuckySummonButton()
+end)
 
 ExitFrame.Trigger.Activated:Connect(function()
 	setAutoSummonState(false)
@@ -1840,8 +1871,6 @@ end)
 SummonFrame.Side_Shop.Contents["Fortunate Crystal"].Contents.Buy.MouseButton1Down:Connect(function()
 	MarketPlaceService:PromptProductPurchase(player,MarketModule.Items[2].ProductID)
 end)
-
-local PassesList = require(ReplicatedStorage.Modules.PassesList)
 
 local function findProductID(id)
 	local result = nil
@@ -1919,6 +1948,26 @@ player:WaitForChild("AutoSell").ChildRemoved:Connect(UpdateAutoSell)
 UpdateAutoSell()
 
 MarketPlaceService.PromptProductPurchaseFinished:Connect(function(userID,productID,isPurchased)
+	if userID ~= player.UserId then return end
+
+	if productID == SINGLE_LUCKY_SUMMON_PRODUCT_ID then
+		local wasFallbackPurchase = pendingLuckySummonFallbackPurchase
+		pendingLuckySummonFallbackPurchase = false
+
+		if isPurchased and wasFallbackPurchase then
+			task.spawn(function()
+				local deadline = os.clock() + 3
+				while player.Parent and player.LuckySpins.Value <= 0 and os.clock() < deadline do
+					task.wait()
+				end
+
+				restoreSummonMenuAfterLuckyPurchase()
+				task.wait()
+				restoreSummonMenuAfterLuckyPurchase()
+			end)
+		end
+	end
+
 	if not isPurchased then return end
 
 	--if productID == 2659785711 then
