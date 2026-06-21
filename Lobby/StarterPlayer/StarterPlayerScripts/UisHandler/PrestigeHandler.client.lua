@@ -76,7 +76,6 @@ local debounce = {
 	TraitPoint = false,
 	ExtraStorage = false,
 	VIP = false,
-	["2x Speed"] = false,
 	LuckySpins = false,
 	["Display 3 Units"] = false,
 	["3x Speed"] = false,
@@ -353,7 +352,6 @@ ShopZone.Event:Connect(function(vision)
 	ConnectShopItem("Display", "Display 3 Units")
 	ConnectShopItem("Storage", "Extra Storage")
 	ConnectShopItem("Vip", "VIP")
-	ConnectShopItem("2X", "2x Speed")
 	ConnectShopItem("Traits", "TraitPoint")
 	ConnectShopItem("3x Speed", "3x Speed")
 	ConnectShopItem("LuckyWillpower", "LuckyWillpower")

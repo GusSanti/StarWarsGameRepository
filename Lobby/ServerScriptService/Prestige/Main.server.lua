@@ -22,7 +22,6 @@ local ShopItems = {
 	["LuckySpins"] = {Quantity = 10, Price = 5, Type = "Currency", Currency = "PrestigeTokens"},
 	["LuckyWillpower"] = {Quantity = 5, Price = 10, Type = "Currency", Currency = "PrestigeTokens"},
 	["VIP"] = {Quantity = 1, Price = 20, Type = "Gamepasses", Currency = "PrestigeTokens"},
-	["2x Speed"] = {Quantity = 1, Price = 12, Type = "Gamepasses", Currency = "PrestigeTokens"},
 	["3x Speed"] = {Quantity = 1, Price = 30, Type = "Gamepasses", Currency = "PrestigeTokens"},
 	["Extra Storage"] = {Quantity = 1, Price = 8, Type = "Gamepasses", Currency = "PrestigeTokens"},
 	["Display 3 Units"] = {Quantity = 1, Price = 10, Type = "Gamepasses", Currency = "PrestigeTokens"},

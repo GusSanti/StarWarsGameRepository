@@ -8,6 +8,13 @@ local VALID_TUTORIAL_SECTIONS = {
 	complete = true,
 }
 
+local TUTORIAL_SECTION_ORDER = {
+	start = 1,
+	arena = 2,
+	["end"] = 3,
+	complete = 4,
+}
+
 local function getTutorialData(player: Player)
 	return {
 		firstTime = player:WaitForChild("FirstTime"),
@@ -18,6 +25,28 @@ local function getTutorialData(player: Player)
 		completed = player:WaitForChild("TutorialCompleted"),
 		win = player:WaitForChild("TutorialWin"),
 	}
+end
+
+local function getTutorialSectionOrder(sectionName)
+	return TUTORIAL_SECTION_ORDER[sectionName] or 0
+end
+
+local function isCompletedTutorialState(tutorialData)
+	return tutorialData.completed.Value == true
+		or tutorialData.section.Value == "complete"
+end
+
+local function normalizeCompletedTutorialState(tutorialData)
+	tutorialData.firstTime.Value = false
+	tutorialData.started.Value = false
+	tutorialData.modeCompleted.Value = true
+	tutorialData.completed.Value = true
+	tutorialData.section.Value = "complete"
+	tutorialData.step.Value = 1
+end
+
+local function canAdvanceToTutorialSection(currentSection, nextSection)
+	return getTutorialSectionOrder(nextSection) >= getTutorialSectionOrder(currentSection)
 end
 
 local function sanitizeTutorialStep(step)
@@ -33,27 +62,36 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 	local tutorialData = getTutorialData(player)
 
 	if action == "checkpoint" then
+		if isCompletedTutorialState(tutorialData) then
+			normalizeCompletedTutorialState(tutorialData)
+			return
+		end
+
 		if typeof(payload) ~= "table" then
 			return
 		end
 
 		if typeof(payload.started) == "boolean" then
-			tutorialData.started.Value = payload.started
+			tutorialData.started.Value = tutorialData.started.Value or payload.started
 		end
 
-		if typeof(payload.firstTime) == "boolean" then
-			tutorialData.firstTime.Value = payload.firstTime
+		if payload.firstTime == false then
+			tutorialData.firstTime.Value = false
 		end
 
-		if typeof(payload.modeCompleted) == "boolean" then
-			tutorialData.modeCompleted.Value = payload.modeCompleted
+		if payload.modeCompleted == true then
+			tutorialData.modeCompleted.Value = true
 		end
 
-		if typeof(payload.win) == "boolean" then
-			tutorialData.win.Value = payload.win
+		if payload.win == true then
+			tutorialData.win.Value = true
 		end
 
 		if VALID_TUTORIAL_SECTIONS[payload.section] then
+			if not canAdvanceToTutorialSection(tutorialData.section.Value, payload.section) then
+				return
+			end
+
 			tutorialData.section.Value = payload.section
 		end
 
@@ -65,6 +103,13 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 	end
 
 	if action == "begin_arena" then
+		if isCompletedTutorialState(tutorialData) or not canAdvanceToTutorialSection(tutorialData.section.Value, "arena") then
+			if isCompletedTutorialState(tutorialData) then
+				normalizeCompletedTutorialState(tutorialData)
+			end
+			return
+		end
+
 		tutorialData.firstTime.Value = false
 		tutorialData.started.Value = true
 		tutorialData.modeCompleted.Value = true
@@ -74,6 +119,13 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 	end
 
 	if action == "match_result" then
+		if isCompletedTutorialState(tutorialData) or not canAdvanceToTutorialSection(tutorialData.section.Value, "end") then
+			if isCompletedTutorialState(tutorialData) then
+				normalizeCompletedTutorialState(tutorialData)
+			end
+			return
+		end
+
 		local won = payload == true
 			or (typeof(payload) == "table" and payload.win == true)
 
@@ -81,6 +133,7 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 		tutorialData.started.Value = true
 		tutorialData.modeCompleted.Value = true
 		tutorialData.win.Value = won
+		tutorialData.completed.Value = false
 		tutorialData.section.Value = "end"
 		tutorialData.step.Value = 1
 		return
@@ -91,17 +144,12 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 			return
 		end
 
-		tutorialData.firstTime.Value = false
-		tutorialData.modeCompleted.Value = true
-		tutorialData.completed.Value = true
-		tutorialData.section.Value = "complete"
-		tutorialData.step.Value = 1
+		normalizeCompletedTutorialState(tutorialData)
 		return
 	end
 
 	if tutorialData.win.Value == true then
-		tutorialData.completed.Value = true
-		tutorialData.section.Value = "complete"
+		normalizeCompletedTutorialState(tutorialData)
 	else
 		warn("Player probably an exploiter lmao")
 	end
@@ -110,12 +158,15 @@ end)
 local function playerAdded(player: Player)
 	repeat task.wait(.1) until player:FindFirstChild("DataLoaded")
 
+	local tutorialData = getTutorialData(player)
 	local tutorialSection = player:WaitForChild("TutorialSection")
 	local tutorialStep = player:WaitForChild("TutorialStep")
 	local tutorialCompleted = player:WaitForChild("TutorialCompleted")
 
-	if tutorialCompleted.Value then
-		tutorialSection.Value = "complete"
+	if tutorialCompleted.Value
+		or tutorialSection.Value == "complete"
+	then
+		normalizeCompletedTutorialState(tutorialData)
 	elseif not VALID_TUTORIAL_SECTIONS[tutorialSection.Value] then
 		tutorialSection.Value = "start"
 	end

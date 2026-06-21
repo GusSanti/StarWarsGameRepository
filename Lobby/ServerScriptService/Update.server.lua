@@ -6,6 +6,7 @@ ReplicatedStorage.Events.Client.UpdateFirstTime.OnServerEvent:Connect(function(p
 	local tutorialStarted = player:FindFirstChild("TutorialStarted")
 	local tutorialSection = player:FindFirstChild("TutorialSection")
 	local tutorialStep = player:FindFirstChild("TutorialStep")
+	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
 	if not firstTime then
 		firstTime = player:FindFirstChild("FirstTime")
 		repeat task.wait(.1) warn("Retrying") until firstTime
@@ -13,6 +14,14 @@ ReplicatedStorage.Events.Client.UpdateFirstTime.OnServerEvent:Connect(function(p
 	if not tutorialMode then
 		tutorialMode = player:FindFirstChild("TutorialModeCompleted")
 		repeat task.wait(.1) warn("Retrying") until tutorialMode
+	end
+
+	if (tutorialCompleted and tutorialCompleted.Value)
+		or (tutorialSection and tutorialSection.Value == "complete")
+		or (tutorialStarted and tutorialStarted.Value)
+		or tutorialMode.Value
+	then
+		return
 	end
 
 	firstTime.Value = false

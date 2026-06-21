@@ -67,6 +67,16 @@ local Products = {
 		return true
 	end,
 
+	[3605850292] = function(ReceiptInfo, Player) -- CadBunny
+		markOwnedProduct(Player, "Anakin")
+		_G.createTower(Player.OwnedTowers, 'Cad Bunny')
+		Player.Gems.Value += 6000
+		Player.TraitPoint.Value += 60
+		Player.LuckySpins.Value += 15
+		Player.Items["Lucky Crystal"].Value += 5
+		return true
+	end,
+
 	[3605584750] = function(ReceiptInfo, Player) -- Dartwader
 		markOwnedProduct(Player, "Dartwader")
 		markOwnedProduct(Player, "Dart Wader Maskless")

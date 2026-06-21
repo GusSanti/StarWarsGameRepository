@@ -376,7 +376,7 @@ local module = {
 	},
 
 	['Cad Bunny Bundle'] = {
-		Id = 3605584692, -- Done
+		Id = 3605850292, -- Cad Bunny
 		IsGamePass = false,
 		OneTimePurchase = true
 	},

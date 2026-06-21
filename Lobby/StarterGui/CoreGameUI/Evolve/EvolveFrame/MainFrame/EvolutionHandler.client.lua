@@ -133,10 +133,6 @@ local function update()
 			local data = player
 
 			if unit["Evolve"] then
-				if selectedUnit.Value:GetAttribute("Equipped") then
-					game.ReplicatedStorage.Events.InteractItem:FireServer(selectedUnit.Value,false)
-				end
-
 				local resultUnitName = unit.Evolve.EvolvedUnit
 				for i, v in unit["Evolve"]["EvolutionRequirement"] do
 					local template = script.TemplateContainer:Clone()

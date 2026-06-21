@@ -47,6 +47,7 @@ repeat task.wait(0.1) until player:FindFirstChild("DataLoaded")
 local tutorialStarted = player:WaitForChild("TutorialStarted")
 local tutorialSection = player:WaitForChild("TutorialSection")
 local tutorialStep = player:WaitForChild("TutorialStep")
+local tutorialModeCompleted = player:WaitForChild("TutorialModeCompleted")
 local tutorialCompleted = player:WaitForChild("TutorialCompleted")
 local tutorialWin = player:WaitForChild("TutorialWin")
 local tutorialLossGemsClaimed = player:WaitForChild("TutorialLossGemsClaimed")
@@ -614,7 +615,10 @@ local function runStepSequence(steps, phaseKey, startIndex)
 end
 
 local function RunTutorial()
-	if tutorialCompleted.Value or player:GetAttribute("TutorialCompleted") then
+	if tutorialCompleted.Value
+		or tutorialSection.Value == "complete"
+		or player:GetAttribute("TutorialCompleted")
+	then
 		return
 	end
 

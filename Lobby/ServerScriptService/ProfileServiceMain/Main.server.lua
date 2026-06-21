@@ -1041,6 +1041,8 @@ local function prepareTutorialStateForSave(player)
 	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
 	local tutorialSection = player:FindFirstChild("TutorialSection")
 	local tutorialStep = player:FindFirstChild("TutorialStep")
+	local tutorialModeCompleted = player:FindFirstChild("TutorialModeCompleted")
+	local tutorialWin = player:FindFirstChild("TutorialWin")
 
 	if tutorialStarted and tutorialStarted.Value and player:FindFirstChild("FirstTime") then
 		player.FirstTime.Value = false
@@ -1048,6 +1050,10 @@ local function prepareTutorialStateForSave(player)
 
 	if tutorialCompleted and tutorialCompleted.Value and tutorialSection then
 		tutorialSection.Value = "complete"
+
+		if tutorialStarted then
+			tutorialStarted.Value = false
+		end
 	end
 
 	if game.PlaceId == PlaceData.Game
@@ -1058,6 +1064,35 @@ local function prepareTutorialStateForSave(player)
 		and tutorialSection
 		and tutorialSection.Value == "arena"
 	then
+		local info = workspace:FindFirstChild("Info")
+		local gameOver = info and info:FindFirstChild("GameOver")
+		local victory = info and info:FindFirstChild("Victory")
+		local matchResolved = (gameOver and gameOver.Value == true) or (victory and victory.Value == true)
+		local tutorialWon = victory and victory.Value == true
+
+		if matchResolved then
+			if tutorialModeCompleted then
+				tutorialModeCompleted.Value = true
+			end
+
+			if tutorialWin then
+				tutorialWin.Value = tutorialWon
+			end
+
+			tutorialCompleted.Value = false
+			tutorialSection.Value = "end"
+
+			if tutorialStarted then
+				tutorialStarted.Value = true
+			end
+
+			if tutorialStep then
+				tutorialStep.Value = 1
+			end
+
+			return
+		end
+
 		tutorialSection.Value = "start"
 
 		if tutorialStep then
