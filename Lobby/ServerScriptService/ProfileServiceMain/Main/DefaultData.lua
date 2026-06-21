@@ -226,6 +226,7 @@ return {
 	},
 
 	LuckySpins = 0,
+	DartwaderBundleGrantReconciled = false,
 
 	Logs = {},
 	Stats = {

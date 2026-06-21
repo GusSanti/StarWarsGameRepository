@@ -36,11 +36,6 @@ local BundleConfigs = {
 			Name = "Fawn",
 		},
 		Slots = {
-			[1] = {
-				Type = "Viewport",
-				Name = "Fawn",
-				Label = "Fawn",
-			},
 			[2] = {
 				Type = "Viewport",
 				Name = "Fawn",
@@ -72,11 +67,6 @@ local BundleConfigs = {
 			Name = "Cad Bunny",
 		},
 		Slots = {
-			[1] = {
-				Type = "Viewport",
-				Name = "Cad Bunny",
-				Label = "Cad Bunny",
-			},
 			[2] = {
 				Type = "Viewport",
 				Name = "Cad Bunny",
@@ -113,11 +103,6 @@ local BundleConfigs = {
 			Name = "Dart Wader",
 		},
 		Slots = {
-			[1] = {
-				Type = "Viewport",
-				Name = "Dart Wader",
-				Label = "Dartwader",
-			},
 			[2] = {
 				Type = "Viewport",
 				Name = "Dart Wader",

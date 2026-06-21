@@ -69,7 +69,6 @@ local Products = {
 
 	[3605584750] = function(ReceiptInfo, Player) -- Dartwader
 		markOwnedProduct(Player, "Dartwader")
-		markOwnedProduct(Player, "Dart Wader Maskless")
 		_G.createTower(Player.OwnedTowers, 'Dart Wader')
 		Player.Gems.Value += 10000
 		Player.TraitPoint.Value += 100

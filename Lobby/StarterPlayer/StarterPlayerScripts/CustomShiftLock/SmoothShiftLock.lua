@@ -42,6 +42,7 @@ local Config = {
 	MOBILE_SUPPORT              = true,                      --// Adds a button to toggle the shift lock for touchscreen devices
 	MOBILE_BUTTON_TITLE         = "Shift Lock",
 	MOBILE_BUTTON_RAISE_OFFSET  = 48,
+	MOBILE_BUTTON_DIAGONAL_GAP  = 16,
 	SMOOTH_CHARACTER_ROTATION   = true,                       --// If your character should rotate smoothly or not
 	CHARACTER_ROTATION_SPEED    = 3,                          --// How quickly character rotates smoothly
 	TRANSITION_SPRING_DAMPER    = 0.7,                        --// Camera transition spring damper, test it out to see what works for you
@@ -82,10 +83,66 @@ function SmoothShiftLock:_getRaisedMobileButtonPosition(basePosition: UDim2): UD
 	);
 end;
 
-function SmoothShiftLock:_applyMobileButtonPosition(mobileButton: GuiObject)
-	if not self._mobileButtonTargetPosition then
-		self._mobileButtonTargetPosition = self:_getRaisedMobileButtonPosition(mobileButton.Position);
+function SmoothShiftLock:_getTouchJumpButton(): GuiObject?
+	local PlayerGui = LocalPlayer:FindFirstChildOfClass("PlayerGui");
+	local TouchGui = PlayerGui and PlayerGui:FindFirstChild("TouchGui");
+	local TouchControlFrame = TouchGui and TouchGui:FindFirstChild("TouchControlFrame");
+	local JumpButton = TouchControlFrame and TouchControlFrame:FindFirstChild("JumpButton");
+
+	if JumpButton and JumpButton:IsA("GuiObject") then
+		return JumpButton;
 	end;
+
+	return nil;
+end;
+
+function SmoothShiftLock:_getDiagonalMobileButtonPosition(mobileButton: GuiObject, jumpButton: GuiObject): UDim2?
+	local ButtonSize = mobileButton.AbsoluteSize;
+	local JumpButtonSize = jumpButton.AbsoluteSize;
+
+	if ButtonSize.X <= 0 or ButtonSize.Y <= 0 or JumpButtonSize.X <= 0 or JumpButtonSize.Y <= 0 then
+		return nil;
+	end;
+
+	local ParentAbsolutePosition = Vector2.new(0, 0);
+	if mobileButton.Parent and mobileButton.Parent:IsA("GuiObject") then
+		ParentAbsolutePosition = mobileButton.Parent.AbsolutePosition;
+	end;
+
+	local Gap = math.max(
+		Config.MOBILE_BUTTON_DIAGONAL_GAP,
+		math.floor(math.min(JumpButtonSize.X, JumpButtonSize.Y) * 0.15)
+	);
+	local TargetTopLeft = Vector2.new(
+		jumpButton.AbsolutePosition.X - ButtonSize.X - Gap,
+		jumpButton.AbsolutePosition.Y - ButtonSize.Y - Gap
+	);
+	local AnchorPoint = mobileButton.AnchorPoint;
+
+	return UDim2.fromOffset(
+		math.floor(TargetTopLeft.X - ParentAbsolutePosition.X + (ButtonSize.X * AnchorPoint.X) + 0.5),
+		math.floor(TargetTopLeft.Y - ParentAbsolutePosition.Y + (ButtonSize.Y * AnchorPoint.Y) + 0.5)
+	);
+end;
+
+function SmoothShiftLock:_getMobileButtonTargetPosition(mobileButton: GuiObject): UDim2
+	local JumpButton = self:_getTouchJumpButton();
+	if JumpButton then
+		local DiagonalPosition = self:_getDiagonalMobileButtonPosition(mobileButton, JumpButton);
+		if DiagonalPosition then
+			return DiagonalPosition;
+		end;
+	end;
+
+	return self:_getRaisedMobileButtonPosition(self._defaultMobileButtonPosition or mobileButton.Position);
+end;
+
+function SmoothShiftLock:_applyMobileButtonPosition(mobileButton: GuiObject)
+	if not self._defaultMobileButtonPosition then
+		self._defaultMobileButtonPosition = mobileButton.Position;
+	end;
+
+	self._mobileButtonTargetPosition = self:_getMobileButtonTargetPosition(mobileButton);
 
 	pcall(function()
 		ContextActionService:SetPosition(MOBILE_ACTION_NAME, self._mobileButtonTargetPosition);
@@ -93,6 +150,12 @@ function SmoothShiftLock:_applyMobileButtonPosition(mobileButton: GuiObject)
 
 	if mobileButton.Position ~= self._mobileButtonTargetPosition then
 		mobileButton.Position = self._mobileButtonTargetPosition;
+	end;
+
+	if self._customMobileButton and self._customMobileButton.Parent then
+		if self._customMobileButton.Position ~= self._mobileButtonTargetPosition then
+			self._customMobileButton.Position = self._mobileButtonTargetPosition;
+		end;
 	end;
 end;
 
@@ -147,6 +210,36 @@ function SmoothShiftLock:_ensureCustomMobileButton(templateButton: GuiObject): G
 	return CustomButton;
 end;
 
+function SmoothShiftLock:_refreshMobileButtonLayout()
+	local MobileButton = ContextActionService:GetButton(MOBILE_ACTION_NAME);
+	if not MobileButton then
+		return;
+	end;
+
+	self:_applyMobileButtonPosition(MobileButton);
+
+	local CustomButton = self._customMobileButton;
+	if CustomButton and CustomButton.Parent then
+		CustomButton.Size = MobileButton.Size;
+		CustomButton.AnchorPoint = MobileButton.AnchorPoint;
+		CustomButton.Position = self._mobileButtonTargetPosition;
+		self:_updateMobileButtonTitle(CustomButton);
+	end;
+end;
+
+function SmoothShiftLock:_startMobileButtonLayoutLoop()
+	if self._runtimeMaid._mobileButtonLayoutLoop then
+		return;
+	end;
+
+	self._runtimeMaid._mobileButtonLayoutLoop = task.spawn(function()
+		while true do
+			self:_refreshMobileButtonLayout();
+			task.wait(0.2);
+		end;
+	end);
+end;
+
 function SmoothShiftLock:_configureMobileButton()
 	if not Config.MOBILE_SUPPORT or not UserInputService.TouchEnabled then
 		return;
@@ -178,6 +271,7 @@ function SmoothShiftLock:_configureMobileButton()
 		CustomButton.Size = MobileButton.Size;
 		CustomButton.AnchorPoint = MobileButton.AnchorPoint;
 		self:_updateMobileButtonTitle(CustomButton);
+		self:_startMobileButtonLayoutLoop();
 
 		MobileButton.Visible = false;
 		MobileButton.Active = false;

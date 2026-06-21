@@ -157,12 +157,12 @@ module.UnitPercents ={
 }
 
 module.LuckyUnitPercents = {
-	{Rarity = "Secret", Weight = 0.05},
-	{Rarity = "Mythical", Weight = 2},
+	-- Lucky spins should never roll Rare units.
+	{Rarity = "Secret", Weight = 0.11},
+	{Rarity = "Mythical", Weight = 4.25},
 	--{Rarity = "Star", Weight = 3.7},
-	{Rarity = "Legendary", Weight = 10},
-	{Rarity = "Epic", Weight = 35},
-	{Rarity = "Rare", Weight = 52.95}
+	{Rarity = "Legendary", Weight = 21.25},
+	{Rarity = "Epic", Weight = 74.39},
 }
 
 

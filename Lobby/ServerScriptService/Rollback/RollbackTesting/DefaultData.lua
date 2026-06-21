@@ -135,6 +135,7 @@ return {
 	SelectedVersion = "",
 	TimeSpent = 0,
 	RobuxSpent = 0,
+	DartwaderBundleGrantReconciled = false,
 	Speed = 1, -- for 1.5x & 3x speed
 
 
