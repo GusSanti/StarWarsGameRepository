@@ -338,6 +338,49 @@ local function addBuff(Player,buff)
 	end
 end
 
+local function playerOwnsUnit(player, unitName, shiny)
+	local ownedTowers = player and player:FindFirstChild("OwnedTowers")
+	if not ownedTowers then
+		return false
+	end
+
+	for _, towerValue in ipairs(ownedTowers:GetChildren()) do
+		if towerValue:IsA("StringValue") and towerValue.Name == unitName then
+			local towerIsShiny = towerValue:GetAttribute("Shiny") == true
+			if shiny == nil or towerIsShiny == shiny then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function reconcileDartwaderBundleGrant(player)
+	local ownGamePasses = player and player:FindFirstChild("OwnGamePasses")
+	local ownedBundleFlag = ownGamePasses and ownGamePasses:FindFirstChild("Dartwader")
+	local reconciledFlag = player and player:FindFirstChild("DartwaderBundleGrantReconciled")
+	local ownedTowers = player and player:FindFirstChild("OwnedTowers")
+
+	if not ownedBundleFlag or not reconciledFlag or not ownedTowers then
+		return
+	end
+
+	if not ownedBundleFlag.Value or reconciledFlag.Value then
+		return
+	end
+
+	if not playerOwnsUnit(player, "Dart Wader", false) then
+		local grantedUnit = _G.createTower(ownedTowers, "Dart Wader")
+		if not grantedUnit then
+			warn(`Failed to reconcile Dartwader bundle for {player.Name}`)
+			return
+		end
+	end
+
+	reconciledFlag.Value = true
+end
+
 --local MarketModule = require(ReplicatedStorage.Modules.MarketModule)
 
 local MarketPlaceService =  game:GetService('MarketplaceService')
@@ -833,6 +876,7 @@ game.Players.PlayerAdded:Connect(function(player)
 
 			DeepLoadDataToInstances(statsData, player)
 			sanitizePlayerSettings(player)
+			reconcileDartwaderBundleGrant(player)
 
 			--warn('DEEP LOADING!')
 
@@ -1443,7 +1487,7 @@ summonBannerEvent.OnServerInvoke = function(player,quantity,HolocronSummon, isLu
 					-- Forçamos um reroll seguro
 					local safeRolls = 20
 					while safeRolls > 0 do
-						unit = ChanceModule.chooseRandomUnit(player, false, bannerIndex)
+						unit = ChanceModule.chooseRandomUnit(player, isLucky, bannerIndex)
 						local newStatsCheck = UpgradesModule[unit.Name]
 						if newStatsCheck and newStatsCheck.Rarity ~= "Legendary" and newStatsCheck.Rarity ~= "Mythical" and newStatsCheck.Rarity ~= "Secret" then
 							break

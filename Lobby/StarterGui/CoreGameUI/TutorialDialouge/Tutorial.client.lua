@@ -395,14 +395,27 @@ local function getSummonActionButton(buttonIndex)
 end
 
 local function findStoryPlayButton()
-	local newStoryFrame = NewUI:FindFirstChild("StoryFrame")
-	if newStoryFrame then
-		return getHighlightTargetFromItem(newStoryFrame:FindFirstChild("Play", true))
+	NewUI = NewUI or playerGui:FindFirstChild("NewUI")
+
+	local function findStoryAction(root)
+		if not root then
+			return nil
+		end
+
+		return getHighlightTargetFromItem(root:FindFirstChild("Join", true))
+			or getHighlightTargetFromItem(root:FindFirstChild("Play", true))
 	end
 
-	local storyFolder = CoreGameUI:FindFirstChild("Story")
-	local storyFrame = storyFolder and storyFolder:FindFirstChild("StoryFrame")
-	return storyFrame and getHighlightTargetFromItem(storyFrame:FindFirstChild("Play", true))
+	local newStoryFrame = NewUI and NewUI:FindFirstChild("StoryFrame")
+	if newStoryFrame then
+		return findStoryAction(newStoryFrame)
+	end
+
+	local legacyStoryFrame = CoreGameUI:FindFirstChild("Play_Menu")
+		and CoreGameUI.Play_Menu:FindFirstChild("Frame")
+		and CoreGameUI.Play_Menu.Frame:FindFirstChild("Story")
+
+	return findStoryAction(legacyStoryFrame)
 end
 
 local STEP_HIGHLIGHTS = {
@@ -449,14 +462,20 @@ local function updateFocusRect()
 	end
 
 	local focusData = focusResolver()
-	local target = focusData and focusData.target or focusData
-	if not (target and target:IsA("GuiObject") and isGuiVisible(target)) then
+	local hasFocusMetadata = typeof(focusData) == "table"
+	local target = hasFocusMetadata and focusData.target or focusData
+
+	while typeof(target) == "table" do
+		target = target.target or target.button or target.gui or target.instance
+	end
+
+	if not (typeof(target) == "Instance" and target:IsA("GuiObject") and isGuiVisible(target)) then
 		setFocusVisible(false)
 		return
 	end
 
-	local padding = focusData and focusData.padding or DEFAULT_FOCUS_PADDING
-	local minSize = focusData and focusData.minSize or DEFAULT_FOCUS_MIN_SIZE
+	local padding = hasFocusMetadata and focusData.padding or DEFAULT_FOCUS_PADDING
+	local minSize = hasFocusMetadata and focusData.minSize or DEFAULT_FOCUS_MIN_SIZE
 	local viewportSize = getViewportSize()
 	local absolutePosition = target.AbsolutePosition
 	local absoluteSize = target.AbsoluteSize

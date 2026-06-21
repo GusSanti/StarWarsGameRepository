@@ -110,7 +110,7 @@ end
 
 local function onPlayerAdded(player)
 	player.Chatted:Connect(function(message)
-		--onPlayerChatted(player, message)
+		onPlayerChatted(player, message)
 	end)
 end
 

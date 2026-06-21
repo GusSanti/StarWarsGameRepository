@@ -200,9 +200,15 @@ local function getNewUiRefs()
 	local itemsChildren = getOrderedGuiChildren(itemsTab)
 	local previewPanel = itemsTab and (itemsTab:FindFirstChild("2") or itemsChildren[2])
 	local selectionPanel = itemsTab and (itemsTab:FindFirstChild("3") or itemsChildren[3])
+	local selectionContent = selectionPanel and selectionPanel:FindFirstChild("Holder")
+	if selectionContent and not selectionContent:IsA("GuiObject") then
+		selectionContent = nil
+	end
+
+	selectionContent = selectionContent or selectionPanel
 	local templateHost = getOrCreateTemplateHost(junkTrader)
 	local profile = (templateHost and templateHost:FindFirstChild("Profile"))
-		or (selectionPanel and (selectionPanel:FindFirstChild("Profile") or findDescendantByName(selectionPanel, "Profile")))
+		or (selectionContent and (selectionContent:FindFirstChild("Profile") or findDescendantByName(selectionContent, "Profile")))
 	local pointEntries = getOrderedGuiChildren(left and left:FindFirstChild("Points"))
 	local rewardSlots = getOrderedGuiChildren(previewPanel and previewPanel:FindFirstChild("Slots"))
 
@@ -230,8 +236,9 @@ local function getNewUiRefs()
 		root = junkTrader,
 		closeButton = findFirstGuiButton(junkTrader:FindFirstChild("Closebtn")),
 		summonButton = findFirstGuiButton(findChildPath(main, { "Craft", "Button" })),
-		addButton = findFirstGuiButton(selectionPanel and (selectionPanel:FindFirstChild("Add") or findDescendantByName(selectionPanel, "Add"))),
+		addButton = findFirstGuiButton(selectionContent and (selectionContent:FindFirstChild("Add") or findDescendantByName(selectionContent, "Add"))),
 		selectionPanel = selectionPanel,
+		selectionContent = selectionContent,
 		templateHost = templateHost,
 		profileTemplate = profile,
 		craftViewport = findChildPath(main, { "Craft", "Placeholder" }),
@@ -649,8 +656,13 @@ local function updateSelectedProfiles()
 		return
 	end
 
-	ensureSelectionPanelPadding(refs.selectionPanel)
-	clearSelectionProfileClones(refs.selectionPanel)
+	local selectionContent = refs.selectionContent or refs.selectionPanel
+	if not selectionContent then
+		return
+	end
+
+	ensureSelectionPanelPadding(selectionContent)
+	clearSelectionProfileClones(selectionContent)
 
 	local profileTemplate = refs.profileTemplate
 	if not profileTemplate then
@@ -662,7 +674,7 @@ local function updateSelectedProfiles()
 		profileTemplate.Parent = templateHost
 	end
 
-	local addRoot = refs.selectionPanel and findDescendantByName(refs.selectionPanel, "Add")
+	local addRoot = selectionContent and findDescendantByName(selectionContent, "Add")
 
 	profileTemplate.Visible = false
 
@@ -685,7 +697,7 @@ local function updateSelectedProfiles()
 		setTextValue(pointsLabel, "Points:" .. tostring(info.points or 0))
 		attachViewport(viewportContainer, info.tower.Name, info.shiny)
 
-		clone.Parent = refs.selectionPanel
+		clone.Parent = selectionContent
 	end
 end
 

@@ -80,6 +80,30 @@ local function waitForMenuButton(name)
 	button.Activated:Wait()
 end
 
+local function findStoryActionButton()
+	NewUI = NewUI or Gui:FindFirstChild("NewUI")
+
+	local function findInRoot(root)
+		if not root then
+			return nil
+		end
+
+		return getGuiButtonFromItem(root:FindFirstChild("Join", true))
+			or getGuiButtonFromItem(root:FindFirstChild("Play", true))
+	end
+
+	local newStoryFrame = NewUI and NewUI:FindFirstChild("StoryFrame")
+	if newStoryFrame then
+		return findInRoot(newStoryFrame)
+	end
+
+	local legacyStoryFrame = CoreGameGui:FindFirstChild("Play_Menu")
+		and CoreGameGui.Play_Menu:FindFirstChild("Frame")
+		and CoreGameGui.Play_Menu.Frame:FindFirstChild("Story")
+
+	return findInRoot(legacyStoryFrame)
+end
+
 local function findUnitsFrame()
 	NewUI = NewUI or Gui:FindFirstChild("NewUI")
 
@@ -473,7 +497,14 @@ tutorialEvents["Elevator"] = function(callback)
 end
 
 tutorialEvents["FinalPlay"] = function(callback)
-	script.Parent.Parent.Parent.Parent.CoreGameUI.Story.StoryFrame.Frame.Bottom_Bar.Bottom_Bar.Play.Activated:Wait()
+	local storyActionButton = findStoryActionButton()
+
+	while not storyActionButton do
+		task.wait(0.1)
+		storyActionButton = findStoryActionButton()
+	end
+
+	storyActionButton.Activated:Wait()
 	callback()
 end
 

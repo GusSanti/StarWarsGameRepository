@@ -1414,11 +1414,16 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 	if not _G.canSummon then return end
 	if not allowHiddenSummon and not isSummonVisible() then return end
 
-	if not player.TutorialWin.Value and not player.TutorialLossGemsClaimed.Value then
-		if amount ~= 10 then return end -- can only summon 10 if not tut
+	if isTutorialSummonFlowActive() then
+		if amount ~= 10 then
+			UiHandler.PlaySound("Error")
+			_G.Message("During the tutorial, only 10x Summon is available.", Color3.fromRGB(221, 0, 0))
+			return
+		end
 
-		warn('Tut is not completed')
-		player.Character:PivotTo(workspace:WaitForChild('TutorialTeleportOut').CFrame)
+		if player.Character then
+			player.Character:PivotTo(workspace:WaitForChild('TutorialTeleportOut').CFrame)
+		end
 	end
 
 	if AutoSummon and not autoSummonSessionActive then

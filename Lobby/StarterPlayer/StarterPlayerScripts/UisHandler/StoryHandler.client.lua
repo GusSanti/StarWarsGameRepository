@@ -35,6 +35,12 @@ local StoryModeStats = require(ReplicatedStorage:WaitForChild("StoryModeStats"))
 local Simplebar = require(ReplicatedStorage.Modules.Client:WaitForChild("Simplebar"))
 local UIHandler = require(ReplicatedStorage.Modules.Client:WaitForChild("UIHandler"))
 local ActLoader = require(script:WaitForChild("ActLoader"))
+local HiddenStoryWorlds = {
+	Temple = true,
+	Hoff = true,
+	Bespin = true,
+	Endor = true,
+}
 
 local currentElevator = nil
 local selectedStoryWorld = nil
@@ -245,6 +251,11 @@ end)
 
 for _, worldButton in ipairs(Left_Panel.Contents.Location.Bg:GetChildren()) do
 	if worldButton:IsA("ImageButton") or worldButton:IsA("GuiButton") then
+		if HiddenStoryWorlds[worldButton.Name] then
+			worldButton.Visible = false
+			continue
+		end
+
 		worldButton.Activated:Connect(function()
 			local worldUnlocked = isActUnlocked(worldButton.Name, "1")
 			if worldUnlocked then	

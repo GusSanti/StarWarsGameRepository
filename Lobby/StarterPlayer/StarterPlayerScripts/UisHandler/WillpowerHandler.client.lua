@@ -177,9 +177,10 @@ local function formatGuiObjects(guiObjects)
 	return table.concat(names, " | ")
 end
 
-local function resolveGuiActionTarget(root)
+local function resolveGuiActionTarget(root, preferRoot)
 	if not root then return nil, nil end
 	if root:IsA("GuiButton") then return root, "Activated" end
+	if preferRoot and root:IsA("GuiObject") then return root, "InputBegan" end
 	local preferredButton = root:FindFirstChild("Btn", true) or root:FindFirstChild("Button", true)
 	if preferredButton and preferredButton:IsA("GuiButton") then return preferredButton, "Activated" end
 	local anyButton = root:FindFirstChildWhichIsA("GuiButton", true)
@@ -188,8 +189,8 @@ local function resolveGuiActionTarget(root)
 	return nil, nil
 end
 
-local function connectGuiAction(root, attributeName, debugName, callback)
-	local actionTarget, actionMode = resolveGuiActionTarget(root)
+local function connectGuiAction(root, attributeName, debugName, callback, preferRoot)
+	local actionTarget, actionMode = resolveGuiActionTarget(root, preferRoot)
 	if not actionTarget then return nil end
 	if actionTarget:GetAttribute(attributeName) then return actionTarget end
 
@@ -573,6 +574,7 @@ local function wireNewWillpowerAddButton()
 	local placeholderContainer = contents and findChildPath(contents, {"Profile", "Placeholder"})
 	local shadow = profile and profile:FindFirstChild("Shadow")
 
+	connectGuiAction(profile, "WillpowerProfileRootConnected", "ProfileRoot", requestWillpowerUnitSelection, true)
 	connectGuiAction(addButtonRoot, "WillpowerAddConnected", "AddButton", requestWillpowerUnitSelection)
 	connectGuiAction(placeholderContainer, "WillpowerProfileConnected", "ProfilePlaceholder", requestWillpowerUnitSelection)
 	connectGuiAction(shadow, "WillpowerProfileShadowConnected", "ProfileShadow", requestWillpowerUnitSelection)
@@ -811,7 +813,7 @@ populateNewWillpowerPanels = function()
 		end
 	end)
 	connectGuiAction(selectUnitButtonRoot, "WillpowerSelectUnitConnected", "SelectUnitButton", function()
-		openWillpowerUnitSelection()
+		requestWillpowerUnitSelection()
 	end)
 
 	updateNewWillpowerProfile()
@@ -825,11 +827,11 @@ local function NewTokenUI(ui)
 		local GiftButton = ui.Contents:WaitForChild("Gift")
 		local Info = GetMarketInfoByName:InvokeServer(ui.Name) 
 
-		BuyButton.MouseButton1Down:Connect(function()
+		connectGuiAction(BuyButton, "WillpowerLegacyBuyConnected", "LegacyBuyButton", function()
 			BuyEvent:FireServer(Info.Id)
 		end)
 
-		GiftButton.MouseButton1Down:Connect(function()
+		connectGuiAction(GiftButton, "WillpowerLegacyGiftConnected", "LegacyGiftButton", function()
 			SelectedGiftId.Value = Info.GiftId
 			GiftFrame.Visible = true
 		end)
@@ -1017,7 +1019,7 @@ end)
 
 connectGuiAction(ChangeUnit, "WillpowerLegacyChangeUnitConnected", "LegacyChangeUnit", requestWillpowerUnitSelection)
 
-RobuxReroll.MouseButton1Down:Connect(function()
+connectGuiAction(RobuxReroll, "WillpowerLegacyLuckyConnected", "LegacyRobuxReroll", function()
 	-- Mais um lugar salvo do delay!
 	task.spawn(function()
 		local Check = CheckIfExists:InvokeServer("LuckyWillpower")
