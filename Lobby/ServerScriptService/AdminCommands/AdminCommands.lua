@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UnitModule = require(ReplicatedStorage.Upgrades)
 local TraitModule = require(ReplicatedStorage.Modules.Traits)
+local StoryModeStats = require(ReplicatedStorage.StoryModeStats)
 
 local AdminCommands = {}
 
@@ -70,6 +71,61 @@ function AdminCommands.giveUnit(playerName, unitName, trait)
 			warnMissingValue(playerName, "OwnedTowers folder")
 		end
 	end
+end
+
+function AdminCommands.unlockAllMaps(playerName)
+	local targetPlayer = getPlayerByName(playerName)
+	if not targetPlayer then
+		return
+	end
+
+	local worldStats = targetPlayer:FindFirstChild("WorldStats")
+	local storyProgress = targetPlayer:FindFirstChild("StoryProgress")
+
+	if not worldStats then
+		warnMissingValue(playerName, "WorldStats folder")
+		return
+	end
+
+	if not storyProgress then
+		warnMissingValue(playerName, "StoryProgress folder")
+		return
+	end
+
+	for _, worldName in ipairs(StoryModeStats.Worlds) do
+		local worldFolder = worldStats:FindFirstChild(worldName)
+		local actNames = StoryModeStats.LevelName[worldName] or {}
+
+		if worldFolder then
+			local levelStats = worldFolder:FindFirstChild("LevelStats")
+			if levelStats then
+				for actIndex = 1, #actNames do
+					local actFolder = levelStats:FindFirstChild("Act" .. tostring(actIndex))
+					if actFolder then
+						local clears = actFolder:FindFirstChild("Clears")
+						if clears then
+							clears.Value = math.max(clears.Value, 1)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local worldValue = storyProgress:FindFirstChild("World")
+	local levelValue = storyProgress:FindFirstChild("Level")
+	local lastWorldName = StoryModeStats.Worlds[#StoryModeStats.Worlds]
+	local lastWorldActCount = lastWorldName and #(StoryModeStats.LevelName[lastWorldName] or {}) or 1
+
+	if worldValue then
+		worldValue.Value = #StoryModeStats.Worlds
+	end
+
+	if levelValue then
+		levelValue.Value = lastWorldActCount
+	end
+
+	print(playerName .. " teve todos os mapas/acts desbloqueados.")
 end
 
 return AdminCommands

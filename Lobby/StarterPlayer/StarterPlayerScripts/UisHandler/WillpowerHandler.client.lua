@@ -66,6 +66,7 @@ local NewWillPower = NewUI and NewUI:WaitForChild("WillPower", 5)
 local isAutoRerolling = false
 local restoreNewWillpowerIndexOnReturn = false
 local lastWillpowerSelectionOpenAt = 0
+local pendingWillpowerSelectionRequestId = 0
 local productPriceCache = {}
 local cooldowntick = 0
 local mythicalpluscooldown = false
@@ -543,12 +544,26 @@ local function updateNewWillpowerStatusEffects()
 end
 
 local function clearWillpowerSelectionMode()
+	pendingWillpowerSelectionRequestId += 1
 	_G.traitTowerSelection = false
 	_G.traitTowerSelectTower = nil
 	_G.traitTowerCancelSelection = nil
 end
 
+local function waitForUnitsUiReady(requestId)
+	while _G.UnitsUiReady ~= true do
+		if requestId ~= pendingWillpowerSelectionRequestId or _G.traitTowerSelection ~= true then
+			return false
+		end
+		task.wait()
+	end
+
+	return requestId == pendingWillpowerSelectionRequestId and _G.traitTowerSelection == true
+end
+
 local function openWillpowerUnitSelection()
+	pendingWillpowerSelectionRequestId += 1
+	local requestId = pendingWillpowerSelectionRequestId
 	_G.traitTowerSelection = true
 	_G.traitTowerSelectTower = function(_, tower)
 		if not tower then return false end
@@ -558,7 +573,16 @@ local function openWillpowerUnitSelection()
 		return true
 	end
 	_G.traitTowerCancelSelection = clearWillpowerSelectionMode
-	safeCloseAll("Units")
+
+	if _G.UnitsUiReady == true then
+		safeCloseAll("Units")
+		return
+	end
+
+	task.spawn(function()
+		if not waitForUnitsUiReady(requestId) then return end
+		safeCloseAll("Units")
+	end)
 end
 
 local function requestWillpowerUnitSelection()
@@ -787,7 +811,10 @@ populateNewWillpowerPanels = function()
 	local robuxRerollButtonRoot = findChildPath(newFrame, {"Body", "Main", "Contents", "Bottom_Bar", "Robux_Reroll"})
 	local selectUnitButtonRoot = findChildPath(newFrame, {"Body", "Main", "Contents", "Bottom_Bar", "Select_Unit"})
 
-	connectGuiAction(closeButtonRoot, "WillpowerCloseConnected", "CloseButton", function() safeCloseAll() end)
+	connectGuiAction(closeButtonRoot, "WillpowerCloseConnected", "CloseButton", function()
+		clearWillpowerSelectionMode()
+		safeCloseAll()
+	end)
 	connectGuiAction(indexButtonRoot, "WillpowerIndexConnected", "IndexButton", function()
 		local targetIndex = indexFrame and indexFrame:IsA("GuiObject") and indexFrame or MainFrame.Parent:FindFirstChild("Index")
 		if not (targetIndex and targetIndex:IsA("GuiObject")) then return end
@@ -1040,6 +1067,7 @@ MarketplaceService.PromptProductPurchaseFinished:Connect(function(userID,product
 end)
 
 MainFrame.X_Close.Activated:Connect(function()
+	clearWillpowerSelectionMode()
 	safeCloseAll()
 end)
 

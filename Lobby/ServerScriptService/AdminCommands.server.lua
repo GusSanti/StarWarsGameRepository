@@ -49,7 +49,7 @@ local function onPlayerChatted(player, message)
 	if rank >= REQUIRED_RANK then
 		local args = splitMessage(message)
 
-		if #args >= 3 then
+		if #args >= 1 then
 			local command = args[1]:lower()
 
 			if command == "!givecoins" then
@@ -96,6 +96,16 @@ local function onPlayerChatted(player, message)
 					end
 				else
 					warn("Invalid number of arguments for !giveunits")
+				end
+
+			elseif command == "!unlockallmaps" or command == "!unlockallacts" then
+				if #args == 2 then
+					local playerName = args[2]
+
+					print("Executing unlockAllMaps with playerName: " .. playerName)
+					AdminCommands.unlockAllMaps(playerName)
+				else
+					warn("Invalid number of arguments for !unlockallmaps")
 				end
 
 			else

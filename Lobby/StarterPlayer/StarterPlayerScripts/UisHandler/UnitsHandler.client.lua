@@ -54,6 +54,7 @@ _G.junkTraderCanSelectTower = nil
 _G.junkTraderIsTowerSelected = nil
 _G.junkTraderSelectTower = nil
 _G.junkTraderCancelSelection = nil
+_G.UnitsUiReady = false
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -1216,6 +1217,7 @@ task.spawn(function()
 
 	updateInventory()
 	blockOpen = false
+	_G.UnitsUiReady = true
 end)
 
 player:WaitForChild("OwnedTowers").ChildAdded:Connect(function(child)

@@ -234,8 +234,12 @@ function module.selectAct(act)
 
 			task.spawn(function()
 				local actLevels = StoryModeStats.LevelName[CurrentWorldValue.Value]
-				local randomActLevel = actLevels and actLevels[math.random(1, #actLevels)] or "Default"
-				local locatedBossViewport = ViewPortModule.CreateViewPort(randomActLevel, nil, true)
+				local actIndex = tonumber(string.match(tostring(act), "(%d+)"))
+				local bossName = actLevels and actIndex and actLevels[actIndex] or ActButton.Contents.Text_Container.Title.Text
+				local locatedBossViewport = ViewPortModule.CreateViewPort(bossName, nil, true)
+				if not locatedBossViewport then
+					return
+				end
 				local oldBossViewport = Detail.Placeholder:FindFirstChildOfClass("ViewportFrame")
 
 				locatedBossViewport.ZIndex = 4

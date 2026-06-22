@@ -110,13 +110,53 @@ local function setFocusVisible(isVisible)
 	FocusOutline.Visible = isVisible
 end
 
-local function getViewportSize()
-	local camera = workspace.CurrentCamera
-	if camera then
-		return camera.ViewportSize
+local function ensureOverlayRootCoversScreen()
+	if not rootGui:IsA("GuiObject") then
+		return
 	end
 
-	return Vector2.new(1920, 1080)
+	-- Keep the blackout layer fullscreen even when mobile layout/safe-area settings differ.
+	if rootGui.AnchorPoint ~= Vector2.new(0, 0) then
+		rootGui.AnchorPoint = Vector2.new(0, 0)
+	end
+
+	if rootGui.Position ~= UDim2.fromOffset(0, 0) then
+		rootGui.Position = UDim2.fromOffset(0, 0)
+	end
+
+	if rootGui.Size ~= UDim2.fromScale(1, 1) then
+		rootGui.Size = UDim2.fromScale(1, 1)
+	end
+end
+
+local function getOverlayBounds()
+	ensureOverlayRootCoversScreen()
+
+	local hasAbsolutePosition, overlayPosition = pcall(function()
+		return rootGui.AbsolutePosition
+	end)
+	local hasAbsoluteSize, overlaySize = pcall(function()
+		return rootGui.AbsoluteSize
+	end)
+
+	if hasAbsolutePosition and hasAbsoluteSize then
+		return overlayPosition, overlaySize
+	end
+
+	local camera = workspace.CurrentCamera
+	if camera then
+		return Vector2.new(0, 0), camera.ViewportSize
+	end
+
+	return Vector2.new(0, 0), Vector2.new(1920, 1080)
+end
+
+local function getLocalTargetRect(target)
+	local overlayPosition, overlaySize = getOverlayBounds()
+	local absolutePosition = target.AbsolutePosition
+	local absoluteSize = target.AbsoluteSize
+
+	return overlayPosition, overlaySize, absolutePosition - overlayPosition, absoluteSize
 end
 
 local function hidePointer()
@@ -476,31 +516,34 @@ local function updateFocusRect()
 
 	local padding = hasFocusMetadata and focusData.padding or DEFAULT_FOCUS_PADDING
 	local minSize = hasFocusMetadata and focusData.minSize or DEFAULT_FOCUS_MIN_SIZE
-	local viewportSize = getViewportSize()
-	local absolutePosition = target.AbsolutePosition
-	local absoluteSize = target.AbsoluteSize
-	local center = absolutePosition + absoluteSize * 0.5 + Vector2.new(0, TUTORIAL_FOCUS_OFFSET_Y)
-	local holeWidth = math.max(absoluteSize.X + padding.X * 2, minSize.X)
-	local holeHeight = math.max(absoluteSize.Y + padding.Y * 2, minSize.Y)
-	local holeLeft = math.floor(math.clamp(center.X - holeWidth * 0.5, 0, math.max(viewportSize.X - holeWidth, 0)))
-	local holeTop = math.floor(math.clamp(center.Y - holeHeight * 0.5, 0, math.max(viewportSize.Y - holeHeight, 0)))
-	local holeRight = math.ceil(math.clamp(holeLeft + holeWidth, 0, viewportSize.X))
-	local holeBottom = math.ceil(math.clamp(holeTop + holeHeight, 0, viewportSize.Y))
+	local _, overlaySize, localPosition, absoluteSize = getLocalTargetRect(target)
+	if overlaySize.X <= 0 or overlaySize.Y <= 0 then
+		setFocusVisible(false)
+		return
+	end
+
+	local center = localPosition + absoluteSize * 0.5 + Vector2.new(0, TUTORIAL_FOCUS_OFFSET_Y)
+	local holeWidth = math.min(math.max(absoluteSize.X + padding.X * 2, minSize.X), overlaySize.X)
+	local holeHeight = math.min(math.max(absoluteSize.Y + padding.Y * 2, minSize.Y), overlaySize.Y)
+	local holeLeft = math.floor(math.clamp(center.X - holeWidth * 0.5, 0, math.max(overlaySize.X - holeWidth, 0)))
+	local holeTop = math.floor(math.clamp(center.Y - holeHeight * 0.5, 0, math.max(overlaySize.Y - holeHeight, 0)))
+	local holeRight = math.ceil(math.clamp(holeLeft + holeWidth, 0, overlaySize.X))
+	local holeBottom = math.ceil(math.clamp(holeTop + holeHeight, 0, overlaySize.Y))
 
 	holeWidth = holeRight - holeLeft
 	holeHeight = holeBottom - holeTop
 
 	FocusTop.Position = UDim2.fromOffset(0, 0)
-	FocusTop.Size = UDim2.fromOffset(viewportSize.X, holeTop)
+	FocusTop.Size = UDim2.fromOffset(overlaySize.X, holeTop)
 
 	FocusBottom.Position = UDim2.fromOffset(0, holeBottom)
-	FocusBottom.Size = UDim2.fromOffset(viewportSize.X, math.max(viewportSize.Y - holeBottom, 0))
+	FocusBottom.Size = UDim2.fromOffset(overlaySize.X, math.max(overlaySize.Y - holeBottom, 0))
 
 	FocusLeft.Position = UDim2.fromOffset(0, holeTop)
 	FocusLeft.Size = UDim2.fromOffset(holeLeft, holeHeight)
 
 	FocusRight.Position = UDim2.fromOffset(holeRight, holeTop)
-	FocusRight.Size = UDim2.fromOffset(math.max(viewportSize.X - holeRight, 0), holeHeight)
+	FocusRight.Size = UDim2.fromOffset(math.max(overlaySize.X - holeRight, 0), holeHeight)
 
 	FocusOutline.Position = UDim2.fromOffset(holeLeft, holeTop)
 	FocusOutline.Size = UDim2.fromOffset(holeWidth, holeHeight)
