@@ -215,7 +215,70 @@ local function getOrCreateViewport(name, shiny)
 
 	local clone = viewportCache[cacheKey]:Clone()
 	clone.Visible = true
+	clone.Active = false
 	return clone
+end
+
+local function isScreenPointInside(gui, screenPoint)
+	if not (gui and gui:IsA("GuiObject") and gui.Visible) then return false end
+	local position = gui.AbsolutePosition
+	local size = gui.AbsoluteSize
+	return screenPoint.X >= position.X and screenPoint.Y >= position.Y and screenPoint.X <= position.X + size.X and screenPoint.Y <= position.Y + size.Y
+end
+
+local function isGuiActuallyVisible(gui)
+	if not (gui and gui:IsA("GuiObject")) then return false end
+	local current = gui
+	while current do
+		if current:IsA("GuiObject") and current.Visible == false then return false end
+		if current:IsA("LayerCollector") and current.Enabled == false then return false end
+		current = current.Parent
+	end
+	return true
+end
+
+local function connectInventoryButtonAction(button, callback)
+	if not (button and button:IsA("GuiButton")) then return end
+
+	local lastTriggerAt = 0
+	local function trigger()
+		lastTriggerAt = os.clock()
+		callback()
+	end
+
+	button.Activated:Connect(function()
+		trigger()
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+
+		if not (button.Parent and isGuiActuallyVisible(button)) then
+			return
+		end
+
+		local screenPoint = Vector2.new(input.Position.X, input.Position.Y)
+		if not isScreenPointInside(button, screenPoint) then
+			return
+		end
+
+		local guiObjects = playerGui:GetGuiObjectsAtPosition(screenPoint.X, screenPoint.Y)
+		local foundInStack = false
+		for _, guiObject in ipairs(guiObjects) do
+			if guiObject == button or guiObject:IsDescendantOf(button) or button:IsDescendantOf(guiObject) then
+				foundInStack = true
+				break
+			end
+		end
+
+		if not foundInStack or os.clock() - lastTriggerAt < 0.15 then
+			return
+		end
+
+		trigger()
+	end)
 end
 
 local function preloadAllViewports()
@@ -989,7 +1052,7 @@ addButton = function(tower)
 		end
 	end)
 
-	button.Activated:Connect(function()
+	connectInventoryButtonAction(button, function()
 		if isJunkTraderSelectionActive() then
 			if canUseTowerInCurrentSelectionMode(tower) then
 				_G.junkTraderSelectTower(button, tower)

@@ -26,6 +26,8 @@ local pointer = pointersFolder and pointersFolder:FindFirstChild("Pointer", true
 local contents = dialogueFrame:WaitForChild("Contents")
 local bgText = contents:WaitForChild("Bg_Text")
 local label = bgText:WaitForChild("TextLabel")
+local continueButton = contents:WaitForChild("Options"):WaitForChild("Continue")
+continueButton.Visible = false
 
 local DailyRewardFrame = NewUI:FindFirstChild("DailyRewardFrame") or NewUI:WaitForChild("DailyRewardFrame", 10)
 local DAILY_REWARD_CLOSED_BY_BUTTON_ATTR = "DailyRewardClosedByButton"
@@ -656,6 +658,14 @@ local function normalizeTutorialResumeStep(sectionName, stepIndex)
 	return stepIndex
 end
 
+local function stepRequiresContinueButton(step)
+	return step and step.waitFor == "Continue"
+end
+
+local function updateContinueButtonVisibility(step)
+	continueButton.Visible = stepRequiresContinueButton(step)
+end
+
 local function runStepSequence(steps, phaseKey, startIndex)
 	dialogueFrame.Visible = true
 
@@ -663,6 +673,7 @@ local function runStepSequence(steps, phaseKey, startIndex)
 		local step = steps[stepNum]
 		cancelTextThread()
 		saveTutorialCheckpoint(phaseKey, stepNum)
+		updateContinueButtonVisibility(step)
 		textThread = task.spawn(animateText, step, phaseKey)
 
 		local waitFunc = events[step.waitFor]
@@ -715,7 +726,6 @@ local function RunTutorial()
 			return
 		end
 
-		contents.Options.Continue.Visible = false
 		for stepNum = math.clamp(startIndex, 1, #tutorialEndSteps), #tutorialEndSteps do
 			local step = tutorialEndSteps[stepNum]
 			cancelTextThread()
@@ -733,6 +743,7 @@ local function RunTutorial()
 				}
 			end
 
+			updateContinueButtonVisibility(step)
 			textThread = task.spawn(animateText, displayStep, "end")
 
 			local waitFunc = events[step.waitFor]
@@ -751,6 +762,7 @@ local function RunTutorial()
 	cancelTextThread()
 	stopFocusTracking()
 	hidePointer()
+	continueButton.Visible = false
 
 	if dialogueScale then
 		funcs.tween(dialogueScale, info, {Scale = 0}):Play()
