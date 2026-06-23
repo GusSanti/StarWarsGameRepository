@@ -645,6 +645,26 @@ local function mergeSummonSummaries(baseSummary, additionalSummary)
 	return createSummonSummary(orderedEntries, totalQuantity)
 end
 
+local function getSummonTowerName(data)
+	return data.TowerName or (data.Tower and data.Tower.Name) or nil
+end
+
+local function getSummonTowerTrait(data)
+	if data.Tower and data.Tower:GetAttribute("Trait") ~= nil then
+		return data.Tower:GetAttribute("Trait")
+	end
+
+	return data.TowerTrait or ""
+end
+
+local function getSummonTowerShiny(data)
+	if data.Tower and data.Tower:GetAttribute("Shiny") ~= nil then
+		return data.Tower:GetAttribute("Shiny") == true
+	end
+
+	return data.TowerShiny == true
+end
+
 local function buildSummonSummary(result)
 	local traitDataCache = {}
 	local groupedEntries = {}
@@ -652,12 +672,11 @@ local function buildSummonSummary(result)
 	local totalQuantity = 0
 
 	for _, data in ipairs(result or {}) do
-		local tower = data.Tower
-		if tower then
-			local towerName = tower.Name
+		local towerName = getSummonTowerName(data)
+		if towerName then
 			local towerStats = Upgrades[towerName]
-			local traitName = tower:GetAttribute("Trait")
-			local isShiny = tower:GetAttribute("Shiny") == true
+			local traitName = getSummonTowerTrait(data)
+			local isShiny = getSummonTowerShiny(data)
 			local hasMythicTrait = isTraitMythicalOrBetter(traitName, traitDataCache)
 			local wasSold = data.AutoSell and not isShiny and not hasMythicTrait
 			local entryKey = string.format(
@@ -1485,22 +1504,25 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 
 	for towerindex, Data in result do
 		local Unit = Data.Tower
+		local towerName = getSummonTowerName(Data)
+		local towerTrait = getSummonTowerTrait(Data)
+		local towerShiny = getSummonTowerShiny(Data)
 
-		if Skip and Unit then
-			local UnitStats = Upgrades[Unit.Name]
+		if Skip and towerName then
+			local UnitStats = Upgrades[towerName]
 			if UnitStats then
 				if UnitStats.Rarity == "Mythical" then
 					shouldConfetti = true
 				end
 
 				local Template = SkipFrame.Frame.TemplateButton:Clone()
-				Template.Name = Unit.Name
+				Template.Name = towerName
 				Template.LayoutOrder = towerindex
 				Template.Visible = true
 				Template.Parent = SkipFrame.Frame
 				Template.UIScale.Scale = 0
 
-				local trait = Unit:GetAttribute("Trait")
+				local trait = towerTrait
 				if trait and trait ~= "" then
 					local traitInfo = getTraitInfo(trait, traitDataCache)
 					if traitInfo then
@@ -1512,7 +1534,7 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 					end
 				end
 
-				if Unit:GetAttribute("Shiny") then
+				if towerShiny then
 					Template.Shiny.Visible = true
 				end
 
@@ -1521,19 +1543,19 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 					isTraitMythical = isTraitMythicalOrBetter(trait, traitDataCache)
 				end
 
-				if Data.AutoSell and not Unit:GetAttribute("Shiny") and not isTraitMythical then
+				if Data.AutoSell and not towerShiny and not isTraitMythical then
 					Template.Sold.Visible = true
 					TweenService:Create(Template.Sold.UIScale, TweenInfo.new(0.5, Enum.EasingStyle.Elastic), {Scale = 1}):Play()
 				end
 
-				local ViewPort = ViewPortModule.CreateViewPort(Unit.Name)
+				local ViewPort = ViewPortModule.CreateViewPort(towerName)
 				ViewPort.Parent = Template
 				ViewPort.ZIndex = 7
 
 				GradientsModule.addRarityGradient({Template.Image, Template.GlowEffect}, UnitStats.Rarity)
 				table.insert(templates, Template)
 
-				--MedalLib.triggerClip('UNIT_SUMMON', `{${UnitStats.Rarity}} {${Unit.Name}}`, {player}, {"SaveClip"}, {duration = 30})
+				--MedalLib.triggerClip('UNIT_SUMMON', `{${UnitStats.Rarity}} {${towerName}}`, {player}, {"SaveClip"}, {duration = 30})
 			end
 		elseif Skip and Data.Item then
 			local item = Data.Item
@@ -1551,19 +1573,19 @@ local function summon(amount, HolocronSummon, isLucky, allowHiddenSummon)
 			shouldConfetti = true
 		else
 			local tower = Data.Tower
-			if tower then
+			if tower and towerName then
 				UiHandler.PlaySound("Redeem")
 				setSummonVisible(false)
-				local Tower = GetUnitModel[tower.Name]
-				local statsTower = Upgrades[tower.Name]
+				local Tower = GetUnitModel[towerName]
+				local statsTower = Upgrades[towerName]
 
-				local trait = tower:GetAttribute("Trait")
+				local trait = towerTrait
 				local isTraitMythical = false
 				if trait and trait ~= "" then
 					isTraitMythical = isTraitMythicalOrBetter(trait, traitDataCache)
 				end
 
-				if Data.AutoSell and not tower:GetAttribute("Shiny") and not isTraitMythical then
+				if Data.AutoSell and not towerShiny and not isTraitMythical then
 					_G.Message("Unit Sold", Color3.fromRGB(255, 170, 0), true)
 				end
 

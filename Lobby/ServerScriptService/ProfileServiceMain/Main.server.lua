@@ -143,12 +143,67 @@ local function GetTableType(t)
 	return "array"
 end
 
+local function resolveTowerOwnerFromLocation(location)
+	if typeof(location) ~= "Instance" then
+		return nil
+	end
+
+	return location:FindFirstAncestorOfClass("Player")
+end
+
+local function ensureUnitsIndexEntry(player, towerName)
+	if typeof(player) ~= "Instance" or not player:IsA("Player") then
+		return
+	end
+
+	if not UpgradesModule[towerName] then
+		return
+	end
+
+	local indexFolder = player:FindFirstChild("Index")
+	local unitsIndex = indexFolder and indexFolder:FindFirstChild("Units Index")
+	if not unitsIndex then
+		return
+	end
+
+	local entry = unitsIndex:FindFirstChild(towerName)
+	if entry then
+		return entry
+	end
+
+	entry = Instance.new("BoolValue")
+	entry.Name = towerName
+	entry.Value = false
+	entry.Parent = unitsIndex
+	return entry
+end
+
+local function resolveTimeObtainedValue(player, info)
+	if info and info["TimeObtained"] ~= nil then
+		return info["TimeObtained"]
+	end
+
+	if info and info["LoadingData"] then
+		return "???"
+	end
+
+	return os.time()
+end
+
 
 _G.createTower = function(location,tower,trait,info,FirstUnit)
+	if typeof(location) ~= "Instance" then
+		warn("createTower rejected invalid location for tower:", tower)
+		return
+	end
+
+	if not UpgradesModule[tower] then
+		warn("createTower could not find tower data for:", tower)
+		return
+	end
+
 	local towerval = Instance.new("StringValue")
 	towerval.Name = tower
-
-	if not UpgradesModule[tower] then return end
 
 	towerval:SetAttribute("Level",1)  
 	towerval:SetAttribute("Exp",0)
@@ -163,56 +218,32 @@ _G.createTower = function(location,tower,trait,info,FirstUnit)
 		towerval:SetAttribute("EquippedSlot", "1")
 	end
 
-	task.spawn(function()
-		local index = location:FindFirstAncestorOfClass("Player"):WaitForChild("Index"):WaitForChild("Units Index")
-		if UpgradesModule[tower] then
-			if not index:FindFirstChild(tower) then
-				print("No index")
-				local Value = Instance.new("BoolValue",index)
-				Value.Name = tower
-			end
-		end
-	end)
-
-
 	if UpgradesModule[tower] and UpgradesModule[tower].Takedowns then
 		towerval:SetAttribute("Takedowns",0)
 	end
 
-	--print( info )
-	local shinyLimited = false
 	if info then
 		if info["Shiny"] then
-			--print('yep shiny')
 			towerval:SetAttribute("Shiny",true)
 		end
 	end
 
-	local player = location:FindFirstAncestorOfClass("Player")
-	if UpgradesModule[tower] then
-		if UpgradesModule[tower].Limited then
-			if info then
-				if player and not info["TimeObtained"] then
-					if info["LoadingData"] then
-						towerval:SetAttribute("TimeObtained", "???")
-					else
-						local currenttime = ReplicatedStorage.Functions.GetTime:InvokeClient(player)
-						towerval:SetAttribute("TimeObtained", currenttime)
-					end
-				elseif info["TimeObtained"] then
-					towerval:SetAttribute("TimeObtained", info["TimeObtained"])
-				end
-			else
-				local currenttime = ReplicatedStorage.Functions.GetTime:InvokeClient(player)
-				towerval:SetAttribute("TimeObtained", currenttime)
-			end
-		end
-	else
-		warn('Unit not found!')
+	local player = resolveTowerOwnerFromLocation(location)
+	if UpgradesModule[tower].Limited then
+		towerval:SetAttribute("TimeObtained", resolveTimeObtainedValue(player, info))
 	end
 
-
 	towerval.Parent = location
+	if towerval.Parent ~= location then
+		warn("createTower failed to parent tower:", tower)
+		towerval:Destroy()
+		return
+	end
+
+	if player then
+		ensureUnitsIndexEntry(player, tower)
+	end
+
 	return towerval
 end
 
@@ -580,6 +611,21 @@ local function DeepSaveInstancesToData(instancesChildren, currentLayer, playerLe
 		end
 	end
 	return newData
+end
+
+local function updateProfileSnapshotFromPlayerState(player, playerLeaving)
+	local profile = Profiles[player]
+	if profile == nil or typeof(player) ~= "Instance" or not player:IsA("Player") then
+		return false
+	end
+
+	local dat = DeepSaveInstancesToData(player:GetChildren(), 0, playerLeaving == true)
+	if next(dat) == nil then
+		return false
+	end
+
+	profile.Data = dat
+	return true
 end
 
 local function MergeData(currentData, defaultData)
@@ -990,12 +1036,7 @@ game.Players.PlayerAdded:Connect(function(player)
 				--print(Profiles, Profiles[player])
 				while player and player:IsDescendantOf(Players) do
 					if Profiles[player] ~= nil and player:FindFirstChild("DataLoaded") then
-						local dat = DeepSaveInstancesToData(player:GetChildren(), 0)
-
-						--warn('SAVING DATA:')
-						--print(dat)
-
-						Profiles[player].Data = dat
+						updateProfileSnapshotFromPlayerState(player)
 					else
 						break
 					end
@@ -1142,12 +1183,7 @@ local function snapshotProfileForTeleport(player, profile)
 	end
 
 	prepareTutorialStateForSave(player)
-
-	local dat = DeepSaveInstancesToData(player:GetChildren(), 0, true)
-	if #dat ~= 0 then
-		dat = HistoryLoggingService.log(dat, false)
-		profile.Data = dat
-	end
+	updateProfileSnapshotFromPlayerState(player, true)
 end
 --[[
 ProfileTeleportCoordinator.setReleaseHandler(function(playersToRelease, onReady)
@@ -1227,11 +1263,8 @@ Players.PlayerRemoving:Connect(function(player)
 		end
 
 		prepareTutorialStateForSave(player)
-		local dat = DeepSaveInstancesToData(player:GetChildren(), 0, true)
-		if #dat ~= 0 then
+		if updateProfileSnapshotFromPlayerState(player, true) then
 			warn('LOGGING OUT')
-			dat = HistoryLoggingService.log(dat, false)
-			profile.Data = dat
 		end
 
 		--print(Profiles, profile)
@@ -1316,8 +1349,41 @@ function SellItem(player, sellTowerList)
 
 
 
+	if totalSoldFor > 0 then
+		updateProfileSnapshotFromPlayerState(player)
+	end
 end
 ReplicatedStorage.Events.SellItem.OnServerEvent:Connect(SellItem)
+
+local function buildSummonTowerResult(tower, autoSell)
+	if typeof(tower) ~= "Instance" then
+		return nil
+	end
+
+	return {
+		Tower = tower,
+		TowerName = tower.Name,
+		TowerTrait = tower:GetAttribute("Trait") or "",
+		TowerShiny = tower:GetAttribute("Shiny") == true,
+		TowerUniqueID = tower:GetAttribute("UniqueID"),
+		AutoSell = autoSell == true,
+		StillOwned = false,
+	}
+end
+
+local function finalizeSummonResult(player, rewardData)
+	if typeof(rewardData) ~= "table" then
+		return
+	end
+
+	local tower = rewardData.Tower
+	local ownedTowers = player and player:FindFirstChild("OwnedTowers")
+	local stillOwned = typeof(tower) == "Instance"
+		and ownedTowers ~= nil
+		and tower.Parent == ownedTowers
+
+	rewardData.StillOwned = stillOwned
+end
 
 ReplicatedStorage.Functions.GetTime.OnServerInvoke = function()
 	return os.date("*t")
@@ -1466,6 +1532,10 @@ summonBannerEvent.OnServerInvoke = function(player,quantity,HolocronSummon, isLu
 			end
 
 			local unit = ChanceModule.chooseRandomUnit(player, isLucky, bannerIndex)
+			if typeof(unit) ~= "Instance" then
+				warn("Summon returned invalid reward for player:", player, "Banner:", bannerIndex)
+				continue
+			end
 
 			-- INÍCIO DA TRAVA DE SESSÃO
 			sessionSummons[player.UserId] += 1
@@ -1477,6 +1547,10 @@ summonBannerEvent.OnServerInvoke = function(player,quantity,HolocronSummon, isLu
 					local safeRolls = 20
 					while safeRolls > 0 do
 						unit = ChanceModule.chooseRandomUnit(player, isLucky, bannerIndex)
+						if typeof(unit) ~= "Instance" then
+							safeRolls -= 1
+							continue
+						end
 						local newStatsCheck = UpgradesModule[unit.Name]
 						if newStatsCheck and newStatsCheck.Rarity ~= "Legendary" and newStatsCheck.Rarity ~= "Mythical" and newStatsCheck.Rarity ~= "Secret" then
 							break
@@ -1486,6 +1560,11 @@ summonBannerEvent.OnServerInvoke = function(player,quantity,HolocronSummon, isLu
 				end
 			end
 			-- FIM DA TRAVA DE SESSÃO
+
+			if typeof(unit) ~= "Instance" then
+				warn("Summon reroll failed to produce a valid reward for player:", player)
+				continue
+			end
 
 			if unit.Name == "TraitPoint" then
 				table.insert(newUnits,{
@@ -1537,15 +1616,23 @@ summonBannerEvent.OnServerInvoke = function(player,quantity,HolocronSummon, isLu
 						Events.Client.ChatMessage:FireAllClients(`[Server] <i>{player.Name}</i> summoned a <font face="FredokaOne">{stringToColor}.</font>`)
 					end
 				end
-				table.insert(newUnits,{
-					Tower = unit,
-					AutoSell = isAutoSell
-				})
+				local summonReward = buildSummonTowerResult(unit, isAutoSell)
+				if summonReward then
+					table.insert(newUnits, summonReward)
+				end
 			end
 		end
 
 		if #sellList > 0 then
 			SellItem(player, sellList)
+		end
+
+		for _, rewardData in ipairs(newUnits) do
+			finalizeSummonResult(player, rewardData)
+		end
+
+		if not updateProfileSnapshotFromPlayerState(player) then
+			warn("Failed to update summon snapshot for player:", player)
 		end
 
 		QuestHandler.UpdateQuestProgress(player, "summon_unit", {AddAmount = #newUnits})
