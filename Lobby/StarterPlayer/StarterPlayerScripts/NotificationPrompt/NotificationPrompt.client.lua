@@ -1,7 +1,9 @@
 local ExperienceNotificationService = game:GetService('ExperienceNotificationService')
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Players = game:GetService('Players')
 local Player = Players.LocalPlayer
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 
 repeat task.wait() until Player:FindFirstChild('DataLoaded')
 
@@ -12,7 +14,9 @@ local function canPromptOptIn()
     return success and canPrompt
 end
 
-if Player.TutorialWin.Value and Player.TutorialCompleted.Value then
+local tutorialState = TutorialState.normalizeSnapshot(TutorialState.snapshot(TutorialState.waitForPlayerData(Player)))
+
+if TutorialState.isVictoryCompleted(tutorialState) then
     -- prompt
     task.wait(30)
     local success, canPrompt = canPromptOptIn()

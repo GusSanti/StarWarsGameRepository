@@ -9,6 +9,7 @@ local Upgrades = require(ReplicatedStorage.Upgrades)
 local ViewModule = require(ReplicatedStorage.Modules.ViewModule)
 local MarketModule = require(ReplicatedStorage.Modules.MarketModule)
 local PassesList = require(ReplicatedStorage.Modules.PassesList)
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 local itemStatsModule = require(ReplicatedStorage:WaitForChild("ItemStats"))
 local GetUnitModel = require(ReplicatedStorage.Modules.GetUnitModel)
 local GradientsModule = require(ReplicatedStorage.Modules.GradientsModule)
@@ -736,16 +737,18 @@ local function setRewardPopupClosedCallback(callback)
 end
 
 local function isTutorialSummonFlowActive()
-	local tutorialStarted = player:FindFirstChild("TutorialStarted")
-	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
-	local tutorialSection = player:FindFirstChild("TutorialSection")
+	local tutorialState = TutorialState.normalizeSnapshot(TutorialState.snapshot({
+		started = player:FindFirstChild("TutorialStarted"),
+		section = player:FindFirstChild("TutorialSection"),
+		step = player:FindFirstChild("TutorialStep"),
+		modeCompleted = player:FindFirstChild("TutorialModeCompleted"),
+		completed = player:FindFirstChild("TutorialCompleted"),
+		win = player:FindFirstChild("TutorialWin"),
+	}))
 
-	return tutorialStarted
-		and tutorialStarted.Value
-		and tutorialCompleted
-		and not tutorialCompleted.Value
-		and tutorialSection
-		and (tutorialSection.Value == "start" or tutorialSection.Value == "end")
+	return tutorialState.started
+		and not TutorialState.isResolved(tutorialState)
+		and (tutorialState.section == "start" or tutorialState.section == "end")
 end
 
 local function restoreUiAfterSummonFlow()

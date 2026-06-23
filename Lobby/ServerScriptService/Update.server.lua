@@ -1,40 +1,34 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 
 ReplicatedStorage.Events.Client.UpdateFirstTime.OnServerEvent:Connect(function(player)
-	local firstTime = player:FindFirstChild("FirstTime")
-	local tutorialMode = player:FindFirstChild("TutorialModeCompleted")
-	local tutorialStarted = player:FindFirstChild("TutorialStarted")
-	local tutorialSection = player:FindFirstChild("TutorialSection")
-	local tutorialStep = player:FindFirstChild("TutorialStep")
-	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
-	if not firstTime then
-		firstTime = player:FindFirstChild("FirstTime")
-		repeat task.wait(.1) warn("Retrying") until firstTime
+	local tutorialData = TutorialState.findPlayerData(player)
+	if not tutorialData.firstTime then
+		repeat task.wait(.1) warn("Retrying") until player:FindFirstChild("FirstTime")
+		tutorialData = TutorialState.findPlayerData(player)
 	end
-	if not tutorialMode then
-		tutorialMode = player:FindFirstChild("TutorialModeCompleted")
-		repeat task.wait(.1) warn("Retrying") until tutorialMode
+	if not tutorialData.modeCompleted then
+		repeat task.wait(.1) warn("Retrying") until player:FindFirstChild("TutorialModeCompleted")
 	end
+	tutorialData = TutorialState.waitForPlayerData(player)
 
-	if (tutorialCompleted and tutorialCompleted.Value)
-		or (tutorialSection and tutorialSection.Value == "complete")
-		or (tutorialStarted and tutorialStarted.Value)
-		or tutorialMode.Value
+	local tutorialState = TutorialState.reconcile(tutorialData)
+	if TutorialState.isResolved(tutorialState)
+		or tutorialState.started
+		or tutorialState.modeCompleted
 	then
 		return
 	end
 
-	firstTime.Value = false
-	if tutorialStarted then
-		tutorialStarted.Value = true
-	end
-	if tutorialSection then
-		tutorialSection.Value = "start"
-	end
-	if tutorialStep then
-		tutorialStep.Value = 1
-	end
-	tutorialMode.Value = false
+	TutorialState.apply(tutorialData, {
+		firstTime = false,
+		started = true,
+		section = "start",
+		step = 1,
+		modeCompleted = false,
+		completed = false,
+		win = false,
+	})
 end)
 
 ReplicatedStorage.Events.Client.RewardGems.OnServerEvent:Connect(function(player: Player) 

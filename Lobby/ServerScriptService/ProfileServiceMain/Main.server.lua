@@ -29,6 +29,7 @@ local WillpowerConfig = BalanceConfig.Willpower or {
 }
 local CosmeticModule = require(ReplicatedStorage.Modules.Cosmetic)
 local GlobalFunctions = require(ReplicatedStorage.Modules.GlobalFunctions)
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 local Market = require(game.ServerStorage.ServerModules.Market)
 --local ProfileTeleportCoordinator = require(ServerStorage.ServerModules.ProfileTeleportCoordinator)
 local DailyReward = require(ReplicatedStorage.Modules.DailyReward)
@@ -1081,32 +1082,23 @@ local TUTORIAL_LOBBY_REENTRY_STEP = 8
 local TELEPORT_RELEASE_TIMEOUT = 10
 
 local function prepareTutorialStateForSave(player)
-	local tutorialStarted = player:FindFirstChild("TutorialStarted")
-	local tutorialCompleted = player:FindFirstChild("TutorialCompleted")
-	local tutorialSection = player:FindFirstChild("TutorialSection")
-	local tutorialStep = player:FindFirstChild("TutorialStep")
-	local tutorialModeCompleted = player:FindFirstChild("TutorialModeCompleted")
-	local tutorialWin = player:FindFirstChild("TutorialWin")
-
-	if tutorialStarted and tutorialStarted.Value and player:FindFirstChild("FirstTime") then
-		player.FirstTime.Value = false
+	local tutorialData = TutorialState.findPlayerData(player)
+	if not tutorialData.started
+		or not tutorialData.section
+		or not tutorialData.step
+		or not tutorialData.modeCompleted
+		or not tutorialData.completed
+		or not tutorialData.win
+	then
+		return
 	end
 
-	if tutorialCompleted and tutorialCompleted.Value and tutorialSection then
-		tutorialSection.Value = "complete"
-
-		if tutorialStarted then
-			tutorialStarted.Value = false
-		end
-	end
+	local tutorialState = TutorialState.normalizeSnapshot(TutorialState.snapshot(tutorialData))
 
 	if game.PlaceId == PlaceData.Game
-		and tutorialStarted
-		and tutorialStarted.Value
-		and tutorialCompleted
-		and not tutorialCompleted.Value
-		and tutorialSection
-		and tutorialSection.Value == "arena"
+		and tutorialState.started
+		and not tutorialState.completed
+		and tutorialState.section == "arena"
 	then
 		local info = workspace:FindFirstChild("Info")
 		local gameOver = info and info:FindFirstChild("GameOver")
@@ -1115,34 +1107,31 @@ local function prepareTutorialStateForSave(player)
 		local tutorialWon = victory and victory.Value == true
 
 		if matchResolved then
-			if tutorialModeCompleted then
-				tutorialModeCompleted.Value = true
-			end
-
-			if tutorialWin then
-				tutorialWin.Value = tutorialWon
-			end
-
-			tutorialCompleted.Value = false
-			tutorialSection.Value = "end"
-
-			if tutorialStarted then
-				tutorialStarted.Value = true
-			end
-
-			if tutorialStep then
-				tutorialStep.Value = 1
-			end
-
+			TutorialState.apply(tutorialData, {
+				firstTime = false,
+				started = true,
+				section = "end",
+				step = 1,
+				modeCompleted = true,
+				completed = false,
+				win = tutorialWon,
+			})
 			return
 		end
 
-		tutorialSection.Value = "start"
-
-		if tutorialStep then
-			tutorialStep.Value = TUTORIAL_LOBBY_REENTRY_STEP
-		end
+		TutorialState.apply(tutorialData, {
+			firstTime = false,
+			started = true,
+			section = "start",
+			step = TUTORIAL_LOBBY_REENTRY_STEP,
+			modeCompleted = true,
+			completed = false,
+			win = false,
+		})
+		return
 	end
+
+	TutorialState.apply(tutorialData, tutorialState)
 end
 
 local function snapshotProfileForTeleport(player, profile)

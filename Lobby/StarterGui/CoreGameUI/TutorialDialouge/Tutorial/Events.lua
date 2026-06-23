@@ -18,8 +18,6 @@ local ContinueButton = Contents:WaitForChild("Options"):WaitForChild("Continue")
 local tutorialEvents = {}
 local tutorialSelectedTower = nil
 
-if Player:GetAttribute("TutorialCompleted") then return end
-
 local function getGuiButtonFromItem(item)
 	if not item then return nil end
 	if item:IsA("GuiButton") then return item end

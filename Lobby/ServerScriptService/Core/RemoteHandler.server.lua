@@ -1,69 +1,17 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local players = game:GetService('Players')
-
-local VALID_TUTORIAL_SECTIONS = {
-	start = true,
-	arena = true,
-	["end"] = true,
-	complete = true,
-}
-
-local TUTORIAL_SECTION_ORDER = {
-	start = 1,
-	arena = 2,
-	["end"] = 3,
-	complete = 4,
-}
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 
 local function getTutorialData(player: Player)
-	return {
-		firstTime = player:WaitForChild("FirstTime"),
-		started = player:WaitForChild("TutorialStarted"),
-		section = player:WaitForChild("TutorialSection"),
-		step = player:WaitForChild("TutorialStep"),
-		modeCompleted = player:WaitForChild("TutorialModeCompleted"),
-		completed = player:WaitForChild("TutorialCompleted"),
-		win = player:WaitForChild("TutorialWin"),
-	}
-end
-
-local function getTutorialSectionOrder(sectionName)
-	return TUTORIAL_SECTION_ORDER[sectionName] or 0
-end
-
-local function isCompletedTutorialState(tutorialData)
-	return tutorialData.completed.Value == true
-		or tutorialData.section.Value == "complete"
-end
-
-local function normalizeCompletedTutorialState(tutorialData)
-	tutorialData.firstTime.Value = false
-	tutorialData.started.Value = false
-	tutorialData.modeCompleted.Value = true
-	tutorialData.completed.Value = true
-	tutorialData.section.Value = "complete"
-	tutorialData.step.Value = 1
-end
-
-local function canAdvanceToTutorialSection(currentSection, nextSection)
-	return getTutorialSectionOrder(nextSection) >= getTutorialSectionOrder(currentSection)
-end
-
-local function sanitizeTutorialStep(step)
-	local numericStep = tonumber(step)
-	if not numericStep then
-		return 1
-	end
-
-	return math.max(1, math.floor(numericStep))
+	return TutorialState.waitForPlayerData(player)
 end
 
 ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, action, payload)
 	local tutorialData = getTutorialData(player)
+	local tutorialState = TutorialState.reconcile(tutorialData)
 
 	if action == "checkpoint" then
-		if isCompletedTutorialState(tutorialData) then
-			normalizeCompletedTutorialState(tutorialData)
+		if TutorialState.isResolved(tutorialState) then
 			return
 		end
 
@@ -87,8 +35,8 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 			tutorialData.win.Value = true
 		end
 
-		if VALID_TUTORIAL_SECTIONS[payload.section] then
-			if not canAdvanceToTutorialSection(tutorialData.section.Value, payload.section) then
+		if TutorialState.VALID_SECTIONS[payload.section] then
+			if not TutorialState.canAdvanceToSection(tutorialState.section, payload.section) then
 				return
 			end
 
@@ -96,33 +44,35 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 		end
 
 		if payload.step ~= nil then
-			tutorialData.step.Value = sanitizeTutorialStep(payload.step)
+			tutorialData.step.Value = TutorialState.sanitizeStep(payload.step)
 		end
+
+		TutorialState.reconcile(tutorialData)
 
 		return
 	end
 
 	if action == "begin_arena" then
-		if isCompletedTutorialState(tutorialData) or not canAdvanceToTutorialSection(tutorialData.section.Value, "arena") then
-			if isCompletedTutorialState(tutorialData) then
-				normalizeCompletedTutorialState(tutorialData)
-			end
+		if TutorialState.isResolved(tutorialState)
+			or not TutorialState.canAdvanceToSection(tutorialState.section, "arena")
+		then
 			return
 		end
 
 		tutorialData.firstTime.Value = false
 		tutorialData.started.Value = true
 		tutorialData.modeCompleted.Value = true
+		tutorialData.completed.Value = false
+		tutorialData.win.Value = false
 		tutorialData.section.Value = "arena"
 		tutorialData.step.Value = 1
 		return
 	end
 
 	if action == "match_result" then
-		if isCompletedTutorialState(tutorialData) or not canAdvanceToTutorialSection(tutorialData.section.Value, "end") then
-			if isCompletedTutorialState(tutorialData) then
-				normalizeCompletedTutorialState(tutorialData)
-			end
+		if TutorialState.isResolved(tutorialState)
+			or not TutorialState.canAdvanceToSection(tutorialState.section, "end")
+		then
 			return
 		end
 
@@ -140,16 +90,32 @@ ReplicatedStorage.Events.Client.Tutorial.OnServerEvent:Connect(function(player, 
 	end
 
 	if action == "complete" then
-		if not tutorialData.started.Value then
+		if not tutorialState.started or tutorialState.section ~= "end" then
 			return
 		end
 
-		normalizeCompletedTutorialState(tutorialData)
+		TutorialState.apply(tutorialData, {
+			firstTime = false,
+			started = false,
+			section = "complete",
+			step = 1,
+			modeCompleted = true,
+			completed = true,
+			win = tutorialState.win,
+		})
 		return
 	end
 
-	if tutorialData.win.Value == true then
-		normalizeCompletedTutorialState(tutorialData)
+	if tutorialState.win == true then
+		TutorialState.apply(tutorialData, {
+			firstTime = false,
+			started = false,
+			section = "complete",
+			step = 1,
+			modeCompleted = true,
+			completed = true,
+			win = true,
+		})
 	else
 		warn("Player probably an exploiter lmao")
 	end
@@ -159,21 +125,7 @@ local function playerAdded(player: Player)
 	repeat task.wait(.1) until player:FindFirstChild("DataLoaded")
 
 	local tutorialData = getTutorialData(player)
-	local tutorialSection = player:WaitForChild("TutorialSection")
-	local tutorialStep = player:WaitForChild("TutorialStep")
-	local tutorialCompleted = player:WaitForChild("TutorialCompleted")
-
-	if tutorialCompleted.Value
-		or tutorialSection.Value == "complete"
-	then
-		normalizeCompletedTutorialState(tutorialData)
-	elseif not VALID_TUTORIAL_SECTIONS[tutorialSection.Value] then
-		tutorialSection.Value = "start"
-	end
-
-	if tutorialStep.Value < 1 then
-		tutorialStep.Value = 1
-	end
+	TutorialState.reconcile(tutorialData)
 end
 
 

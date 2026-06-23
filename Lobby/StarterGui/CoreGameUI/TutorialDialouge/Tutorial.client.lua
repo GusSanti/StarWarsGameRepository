@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 
 local funcs = require(ReplicatedStorage.Modules.Functions)
 local DailyRewardModule = require(ReplicatedStorage.Modules.DailyReward)
+local TutorialState = require(ReplicatedStorage.Modules.TutorialState)
 
 local tutorialFolder = script:FindFirstChild("Tutorial") or script.Parent:WaitForChild("Tutorial")
 local tutorialStartSteps = require(tutorialFolder:WaitForChild("TutotrialStartSteps"))
@@ -46,6 +47,7 @@ local focusResolver = nil
 
 repeat task.wait(0.1) until player:FindFirstChild("DataLoaded")
 
+local firstTime = player:WaitForChild("FirstTime")
 local tutorialStarted = player:WaitForChild("TutorialStarted")
 local tutorialSection = player:WaitForChild("TutorialSection")
 local tutorialStep = player:WaitForChild("TutorialStep")
@@ -53,6 +55,18 @@ local tutorialModeCompleted = player:WaitForChild("TutorialModeCompleted")
 local tutorialCompleted = player:WaitForChild("TutorialCompleted")
 local tutorialWin = player:WaitForChild("TutorialWin")
 local tutorialLossGemsClaimed = player:WaitForChild("TutorialLossGemsClaimed")
+
+local function getTutorialStateSnapshot()
+	return TutorialState.normalizeSnapshot(TutorialState.snapshot({
+		firstTime = firstTime,
+		started = tutorialStarted,
+		section = tutorialSection,
+		step = tutorialStep,
+		modeCompleted = tutorialModeCompleted,
+		completed = tutorialCompleted,
+		win = tutorialWin,
+	}))
+end
 
 local POINTER_POSITIONS = {
 	[2] = UDim2.fromScale(0.06, 0.59),
@@ -688,19 +702,18 @@ local function runStepSequence(steps, phaseKey, startIndex)
 end
 
 local function RunTutorial()
-	if tutorialCompleted.Value
-		or tutorialSection.Value == "complete"
-		or player:GetAttribute("TutorialCompleted")
-	then
+	local tutorialState = getTutorialStateSnapshot()
+
+	if TutorialState.isResolved(tutorialState) then
 		return
 	end
 
 	local info = TweenInfo.new(0.35, Enum.EasingStyle.Exponential)
-	local sectionName = tutorialSection.Value
-	local startIndex = math.max(tutorialStep.Value, 1)
+	local sectionName = tutorialState.section
+	local startIndex = tutorialState.step
 
 	if sectionName == "start" then
-		if not (player.FirstTime.Value or tutorialStarted.Value) then
+		if not (tutorialState.firstTime or tutorialState.started) then
 			return
 		end
 
@@ -716,13 +729,13 @@ local function RunTutorial()
 
 		runStepSequence(tutorialStartSteps, "start", normalizedStartIndex)
 	elseif sectionName == "arena" then
-		if not tutorialStarted.Value then
+		if not tutorialState.started then
 			return
 		end
 
 		runStepSequence(tutorialStartSteps, "start", LOBBY_REENTRY_STEP)
 	elseif sectionName == "end" then
-		if not tutorialStarted.Value then
+		if not tutorialState.started then
 			return
 		end
 
@@ -732,7 +745,7 @@ local function RunTutorial()
 			saveTutorialCheckpoint("end", stepNum)
 
 			local displayStep = step
-			if step.index == 1 and tutorialWin.Value == false then
+			if step.index == 1 and tutorialState.win == false then
 				if not tutorialLossGemsClaimed.Value then
 					ReplicatedStorage.Events.Client.RewardGems:FireServer()
 				end
