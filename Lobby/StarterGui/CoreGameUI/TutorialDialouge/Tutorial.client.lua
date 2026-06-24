@@ -31,6 +31,8 @@ local continueButton = contents:WaitForChild("Options"):WaitForChild("Continue")
 continueButton.Visible = false
 
 local DailyRewardFrame = NewUI:FindFirstChild("DailyRewardFrame") or NewUI:WaitForChild("DailyRewardFrame", 10)
+local DAILY_REWARD_RESOLVED_ATTR = "DailyRewardStartupResolved"
+local DAILY_REWARD_SHOWN_ATTR = "DailyRewardStartupShown"
 local DAILY_REWARD_CLOSED_BY_BUTTON_ATTR = "DailyRewardClosedByButton"
 local TutorialRemote = ReplicatedStorage.Events.Client:WaitForChild("Tutorial")
 local GetUnits = ReplicatedStorage:WaitForChild("GetUnitsButton")
@@ -605,17 +607,37 @@ local function waitForDailyRewardCloseButton()
 		return
 	end
 
-	local startupDeadline = os.clock() + 5
-	while NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == nil and os.clock() < startupDeadline do
+	local openDeadline = os.clock() + 12
+	while os.clock() < openDeadline do
+		if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+			return
+		end
+
+		if DailyRewardFrame.Visible then
+			break
+		end
+
+		if NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) ~= true
+			and NewUI:GetAttribute(DAILY_REWARD_RESOLVED_ATTR) == true
+		then
+			-- Do not deadlock the tutorial if the startup prompt never makes it on screen.
+			return
+		end
+
 		task.wait(0.1)
 	end
 
-	if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+	if not DailyRewardFrame.Visible then
 		return
 	end
 
-	while NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) ~= true do
-		NewUI:GetAttributeChangedSignal(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR):Wait()
+	local closeDeadline = os.clock() + 60
+	while DailyRewardFrame.Visible and os.clock() < closeDeadline do
+		if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+			return
+		end
+
+		task.wait(0.1)
 	end
 end
 

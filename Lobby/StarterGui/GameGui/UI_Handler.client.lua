@@ -86,6 +86,10 @@ local listTween = nil
 local prev = nil
 local isFirstAutoOpen = false
 local pendingDailyRewardAutoOpen = false
+local dailyRewardStartupRetryActive = false
+local DAILY_REWARD_STARTUP_RETRY_WINDOW = 30
+local DAILY_REWARD_STARTUP_RETRY_INTERVAL = 1
+local DAILY_REWARD_VISIBILITY_CONFIRM_TIMEOUT = 2
 
 local function addGuiIfPresent(targetTable, gui)
 	if gui and gui:IsA("GuiObject") then
@@ -149,6 +153,25 @@ local function setDailyRewardStartupState(pending, resolved, shown)
 	if shown ~= nil then
 		NewUI:SetAttribute(DAILY_REWARD_SHOWN_ATTR, shown)
 	end
+end
+
+local function confirmDailyRewardStartupShown(frame, waitTimeout)
+	local deadline = os.clock() + (waitTimeout or DAILY_REWARD_VISIBILITY_CONFIRM_TIMEOUT)
+
+	repeat
+		if not frame or frame.Parent == nil then
+			return false
+		end
+
+		if frame.Visible or NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) == true then
+			return true
+		end
+
+		task.wait(0.05)
+	until os.clock() >= deadline
+
+	return frame.Parent ~= nil
+		and (frame.Visible or NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) == true)
 end
 
 local function initializeDailyRewardStartupState()
@@ -469,7 +492,45 @@ local function tryAutoOpenDailyReward(waitTimeout)
 	isFirstAutoOpen = true
 	closeall(resolvedFrame.Name)
 	isFirstAutoOpen = false
-	return true
+	return confirmDailyRewardStartupShown(resolvedFrame)
+end
+
+local function shouldRetryDailyRewardStartup()
+	if NewUI:GetAttribute(DAILY_REWARD_CLOSED_BY_BUTTON_ATTR) == true then
+		return false
+	end
+
+	if NewUI:GetAttribute(DAILY_REWARD_SHOWN_ATTR) == true then
+		return false
+	end
+
+	return CanClaim()
+end
+
+local function scheduleDailyRewardStartupRetry(waitTimeout)
+	if dailyRewardStartupRetryActive then
+		return
+	end
+
+	dailyRewardStartupRetryActive = true
+
+	task.spawn(function()
+		local deadline = os.clock() + DAILY_REWARD_STARTUP_RETRY_WINDOW
+
+		while os.clock() < deadline do
+			if tryAutoOpenDailyReward(waitTimeout) then
+				break
+			end
+
+			if not shouldRetryDailyRewardStartup() then
+				break
+			end
+
+			task.wait(DAILY_REWARD_STARTUP_RETRY_INTERVAL)
+		end
+
+		dailyRewardStartupRetryActive = false
+	end)
 end
 
 local function getListClosedPosition()
@@ -1076,18 +1137,14 @@ for _, element in openuionstart do
 	end
 end
 
-task.spawn(function()
-	tryAutoOpenDailyReward(10)
-end)
+scheduleDailyRewardStartupRetry(10)
 
 NewUI.ChildAdded:Connect(function(child)
 	if not child or not isDailyRewardMenu(child.Name) then
 		return
 	end
 
-	task.spawn(function()
-		tryAutoOpenDailyReward(0)
-	end)
+	scheduleDailyRewardStartupRetry(10)
 end)
 
 DisplayFramesOnLoad.OnClientEvent:Connect(function(name)
@@ -1095,9 +1152,7 @@ DisplayFramesOnLoad.OnClientEvent:Connect(function(name)
 		return
 	end
 
-	task.spawn(function()
-		tryAutoOpenDailyReward(10)
-	end)
+	scheduleDailyRewardStartupRetry(10)
 end)
 
 for i, v in buttons do

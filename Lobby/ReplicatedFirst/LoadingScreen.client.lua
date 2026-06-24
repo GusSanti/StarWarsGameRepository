@@ -186,19 +186,32 @@ local function LoadIntoGame()
 	
 	task.wait(3)
 
-	local UIHandler = require(
-		ReplicatedStorage
-			:WaitForChild("Modules")
-			:WaitForChild("Client")
-			:WaitForChild("UIHandler")
-	)
+	-- The startup systems should not stay blocked behind a cosmetic transition.
+	task.spawn(function()
+		local success, transitionError = pcall(function()
+			local UIHandler = require(
+				ReplicatedStorage
+					:WaitForChild("Modules")
+					:WaitForChild("Client")
+					:WaitForChild("UIHandler")
+			)
 
-	UIHandler.Transition()
+			if type(UIHandler.Transition) == "function" then
+				UIHandler.Transition()
+			end
+		end)
+
+		if not success then
+			warn("Loading screen transition failed:", transitionError)
+		end
+	end)
 
 	SetChatEnabled(true)
 	SetControlsEnabled(true)
 
-	Debris:AddItem(LoadingGui, 2)
+	if LoadingGui.Parent ~= nil then
+		Debris:AddItem(LoadingGui, 2)
+	end
 
 	print("Setting loaded as true!")
 
