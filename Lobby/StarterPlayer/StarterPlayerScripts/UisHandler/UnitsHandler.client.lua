@@ -137,6 +137,14 @@ local STAT_NAME_ALIASES = {
 	Range = {"Range", "View", "RNG", "Radius", "AttackRange", "Distance"},
 }
 
+local function debugUnits(message)
+	print("[UnitsHandler] " .. tostring(message))
+end
+
+local function warnUnits(message)
+	warn("[UnitsHandler] " .. tostring(message))
+end
+
 local buttonConnections = {
 	["DisconnectAll"] = function(self)
 		for index,element in pairs(self) do
@@ -1281,6 +1289,8 @@ task.spawn(function()
 	updateInventory()
 	blockOpen = false
 	_G.UnitsUiReady = true
+	local totalUnits, visibleUnits = getInventoryButtonCounts()
+	debugUnits("Units UI ready. totalUnits=" .. tostring(totalUnits) .. " visibleUnits=" .. tostring(visibleUnits))
 end)
 
 player:WaitForChild("OwnedTowers").ChildAdded:Connect(function(child)
@@ -1308,8 +1318,18 @@ player:WaitForChild("OwnedTowers").ChildAdded:Connect(function(child)
 end)
 
 UnitsUI:GetPropertyChangedSignal('Visible'):Connect(function()
+	debugUnits(
+		"Visible changed to "
+		.. tostring(UnitsUI.Visible)
+		.. " blockOpen="
+		.. tostring(blockOpen)
+		.. " traitSelection="
+		.. tostring(_G.traitTowerSelection)
+	)
+
 	if blockOpen then
 		if UnitsUI.Visible then
+			warnUnits("Units was asked to open before preload finished; closing until ready")
 			UnitsUI.Visible = false
 			if _G.CloseAll then _G.CloseAll() end
 		end

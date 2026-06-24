@@ -148,7 +148,24 @@ local function getDebugInstancePath(instance)
 end
 
 local function debugWillpower(message)
-	-- warn("[WillpowerDebug] " .. message)
+	print("[WillpowerUnits] " .. tostring(message))
+end
+
+local function warnWillpower(message)
+	warn("[WillpowerUnits] " .. tostring(message))
+end
+
+local function showWillpowerMessage(message, color)
+	debugWillpower(message)
+	if typeof(_G.Message) ~= "function" then return end
+
+	local success, errorMessage = pcall(function()
+		_G.Message(message, color or Color3.fromRGB(255, 221, 80), true)
+	end)
+
+	if not success then
+		warnWillpower("Failed to show message: " .. tostring(errorMessage))
+	end
 end
 
 local function isScreenPointInside(gui, screenPoint)
@@ -199,6 +216,7 @@ local function connectGuiAction(root, attributeName, debugName, callback, prefer
 	local lastTriggerAt = 0
 	local function trigger(source)
 		lastTriggerAt = os.clock()
+		debugWillpower((debugName or "GuiAction") .. " triggered by " .. tostring(source) .. " on " .. getDebugInstancePath(actionTarget))
 		callback()
 	end
 
@@ -446,46 +464,176 @@ local function getCloseAllFunction(timeoutSeconds)
 	return typeof(closeAll) == "function" and closeAll or nil
 end
 
-local function safeCloseAll(targetName)
+local function getUnitsSelectionFrame()
+	if not (NewUI and NewUI.Parent) then
+		NewUI = PlayerGui:FindFirstChild("NewUI")
+	end
+
+	local newUnitsFrame = NewUI and NewUI:FindFirstChild("Units")
+	if newUnitsFrame and newUnitsFrame:IsA("GuiObject") then
+		return newUnitsFrame, "NewUI.Units"
+	end
+
+	if Inventory and Inventory:IsA("GuiObject") then
+		return Inventory, "UnitsGui.Inventory.Units"
+	end
+
+	return nil, "missing"
+end
+
+local function refreshUnitsSelectionUi()
+	if typeof(_G.refreshUnitsInventory) == "function" then
+		local success, errorMessage = pcall(_G.refreshUnitsInventory)
+		if not success then
+			warnWillpower("refreshUnitsInventory failed: " .. tostring(errorMessage))
+		end
+	end
+
+	if typeof(_G.refreshUnitsInventoryVisibility) == "function" then
+		local success, errorMessage = pcall(_G.refreshUnitsInventoryVisibility)
+		if not success then
+			warnWillpower("refreshUnitsInventoryVisibility failed: " .. tostring(errorMessage))
+		end
+	end
+end
+
+local function openUnitsFrameDirectly(unitsFrame, unitsPath, newFrame, indexFrame, reason)
+	if not (unitsFrame and unitsFrame:IsA("GuiObject")) then
+		warnWillpower("Cannot open Units directly; units frame is " .. tostring(unitsPath))
+		return false
+	end
+
+	debugWillpower("Opening Units directly via " .. tostring(unitsPath) .. " reason=" .. tostring(reason))
+
+	if newFrame and newFrame:IsA("GuiObject") then newFrame.Visible = false end
+	if WillpowerFrameBase and WillpowerFrameBase:IsA("GuiObject") then WillpowerFrameBase.Visible = false end
+	if indexFrame and indexFrame:IsA("GuiObject") then
+		restoreNewWillpowerIndexOnReturn = indexFrame.Visible == true
+		indexFrame.Visible = false
+	else
+		restoreNewWillpowerIndexOnReturn = false
+	end
+
+	unitsFrame.Visible = true
+	refreshUnitsSelectionUi()
+	return unitsFrame.Visible == true
+end
+
+local function openWillpowerFrameDirectly(targetFrame, unitsFrame, indexFrame, reason)
+	if not (targetFrame and targetFrame:IsA("GuiObject")) then
+		warnWillpower("Cannot open Willpower directly; target frame is missing")
+		return false
+	end
+
+	debugWillpower("Opening Willpower directly reason=" .. tostring(reason))
+	targetFrame.Visible = true
+	if indexFrame and indexFrame:IsA("GuiObject") then indexFrame.Visible = restoreNewWillpowerIndexOnReturn end
+	restoreNewWillpowerIndexOnReturn = false
+	if unitsFrame and unitsFrame:IsA("GuiObject") then unitsFrame.Visible = false end
+	return targetFrame.Visible == true
+end
+
+local function closeWillpowerFramesDirectly(newFrame, unitsFrame, indexFrame, reason)
+	debugWillpower("Closing Willpower frames directly reason=" .. tostring(reason))
+	if newFrame and newFrame:IsA("GuiObject") then newFrame.Visible = false end
+	if WillpowerFrameBase and WillpowerFrameBase:IsA("GuiObject") then WillpowerFrameBase.Visible = false end
+	if unitsFrame and unitsFrame:IsA("GuiObject") then unitsFrame.Visible = false end
+	if indexFrame and indexFrame:IsA("GuiObject") then indexFrame.Visible = false end
+	restoreNewWillpowerIndexOnReturn = false
+	return true
+end
+
+local function safeCloseAll(targetName, reason)
 	local newFrame = getNewWillPowerFrame()
-	local unitsFrame = NewUI and NewUI:FindFirstChild("Units")
+	local unitsFrame, unitsPath = getUnitsSelectionFrame()
 	local indexFrame = newFrame and newFrame:FindFirstChild("Index")
+	local willpowerTargetFrame = newFrame or WillpowerFrameBase
 
 	if targetName == "Units" and unitsFrame and unitsFrame:IsA("GuiObject") then
-		if newFrame and newFrame:IsA("GuiObject") then newFrame.Visible = false end
-		if indexFrame and indexFrame:IsA("GuiObject") then
-			restoreNewWillpowerIndexOnReturn = indexFrame.Visible == true
-			indexFrame.Visible = false
-		else
-			restoreNewWillpowerIndexOnReturn = false
+		if isGuiActuallyVisible(unitsFrame) then
+			debugWillpower("Units already visible at " .. tostring(unitsPath))
+			if newFrame and newFrame:IsA("GuiObject") then newFrame.Visible = false end
+			if WillpowerFrameBase and WillpowerFrameBase:IsA("GuiObject") then WillpowerFrameBase.Visible = false end
+			if indexFrame and indexFrame:IsA("GuiObject") then indexFrame.Visible = false end
+			refreshUnitsSelectionUi()
+			return true
 		end
-		unitsFrame.Visible = true
-		return true
+
+		local closeAll = getCloseAllFunction(0.25)
+		if closeAll then
+			debugWillpower("Opening Units through _G.CloseAll reason=" .. tostring(reason))
+			if newFrame and newFrame:IsA("GuiObject") then newFrame.Visible = false end
+			if WillpowerFrameBase and WillpowerFrameBase:IsA("GuiObject") then WillpowerFrameBase.Visible = false end
+			if indexFrame and indexFrame:IsA("GuiObject") then
+				restoreNewWillpowerIndexOnReturn = indexFrame.Visible == true
+				indexFrame.Visible = false
+			end
+			closeAll("Units")
+			task.delay(0.35, function()
+				if unitsFrame.Parent and not isGuiActuallyVisible(unitsFrame) then
+					warnWillpower("_G.CloseAll did not leave Units visible; forcing direct fallback")
+					openUnitsFrameDirectly(unitsFrame, unitsPath, newFrame, indexFrame, "CloseAllFallback")
+				else
+					refreshUnitsSelectionUi()
+				end
+			end)
+			return true
+		end
+
+		return openUnitsFrameDirectly(unitsFrame, unitsPath, newFrame, indexFrame, reason or "NoCloseAll")
 	end
 
-	if targetName == getWillpowerMenuTarget() and newFrame and newFrame:IsA("GuiObject") then
-		newFrame.Visible = true
-		if indexFrame and indexFrame:IsA("GuiObject") then indexFrame.Visible = restoreNewWillpowerIndexOnReturn end
-		restoreNewWillpowerIndexOnReturn = false
-		local currentUnits = NewUI and NewUI:FindFirstChild("Units")
-		if currentUnits and currentUnits:IsA("GuiObject") then currentUnits.Visible = false end
-		return true
+	if targetName == getWillpowerMenuTarget() and willpowerTargetFrame and willpowerTargetFrame:IsA("GuiObject") then
+		if isGuiActuallyVisible(willpowerTargetFrame) then
+			debugWillpower("Willpower already visible")
+			if unitsFrame and unitsFrame:IsA("GuiObject") then unitsFrame.Visible = false end
+			return true
+		end
+
+		local closeAll = getCloseAllFunction(0.25)
+		if closeAll then
+			debugWillpower("Opening Willpower through _G.CloseAll reason=" .. tostring(reason))
+			if unitsFrame and unitsFrame:IsA("GuiObject") then unitsFrame.Visible = false end
+			closeAll(targetName)
+			task.delay(0.35, function()
+				if willpowerTargetFrame.Parent and not isGuiActuallyVisible(willpowerTargetFrame) then
+					warnWillpower("_G.CloseAll did not leave Willpower visible; forcing direct fallback")
+					openWillpowerFrameDirectly(willpowerTargetFrame, unitsFrame, indexFrame, "CloseAllFallback")
+				end
+			end)
+			return true
+		end
+
+		return openWillpowerFrameDirectly(willpowerTargetFrame, unitsFrame, indexFrame, reason or "NoCloseAll")
 	end
 
-	if targetName == nil and newFrame and newFrame:IsA("GuiObject") then
-		newFrame.Visible = false
-		if unitsFrame and unitsFrame:IsA("GuiObject") then unitsFrame.Visible = false end
-		if indexFrame and indexFrame:IsA("GuiObject") then indexFrame.Visible = false end
-		restoreNewWillpowerIndexOnReturn = false
-		return true
+	if targetName == nil and willpowerTargetFrame and willpowerTargetFrame:IsA("GuiObject") then
+		local closeAll = getCloseAllFunction(0.25)
+		if closeAll then
+			debugWillpower("Closing menus through _G.CloseAll reason=" .. tostring(reason))
+			closeAll()
+			task.delay(0.35, function()
+				local willpowerStillVisible = willpowerTargetFrame.Parent and isGuiActuallyVisible(willpowerTargetFrame)
+				local unitsStillVisible = unitsFrame and unitsFrame.Parent and isGuiActuallyVisible(unitsFrame)
+				if willpowerStillVisible or unitsStillVisible then
+					warnWillpower("_G.CloseAll did not close Willpower/Units; forcing direct close")
+					closeWillpowerFramesDirectly(newFrame, unitsFrame, indexFrame, "CloseAllFallback")
+				end
+			end)
+			return true
+		end
+
+		return closeWillpowerFramesDirectly(newFrame, unitsFrame, indexFrame, reason or "NoCloseAll")
 	end
 
 	local closeAll = getCloseAllFunction(1)
 	if closeAll then
+		debugWillpower("Using generic _G.CloseAll target=" .. tostring(targetName) .. " reason=" .. tostring(reason))
 		closeAll(targetName)
 		return true
 	end
 
+	warnWillpower("safeCloseAll failed for target=" .. tostring(targetName) .. " reason=" .. tostring(reason))
 	return false
 end
 
@@ -551,43 +699,86 @@ local function clearWillpowerSelectionMode()
 end
 
 local function waitForUnitsUiReady(requestId)
+	local timeoutAt = os.clock() + 8
+	local lastWaitingPrintAt = 0
+
 	while _G.UnitsUiReady ~= true do
 		if requestId ~= pendingWillpowerSelectionRequestId or _G.traitTowerSelection ~= true then
+			debugWillpower("Stopped waiting for Units UI; request was cancelled")
 			return false
 		end
+
+		if os.clock() >= timeoutAt then
+			warnWillpower("Timed out waiting for _G.UnitsUiReady")
+			showWillpowerMessage("Units is still loading. Trying a fallback open...", Color3.fromRGB(255, 221, 80))
+			return false
+		end
+
+		if os.clock() - lastWaitingPrintAt > 1 then
+			lastWaitingPrintAt = os.clock()
+			debugWillpower("Waiting for Units UI to finish loading...")
+		end
+
 		task.wait()
 	end
 
+	debugWillpower("Units UI ready")
 	return requestId == pendingWillpowerSelectionRequestId and _G.traitTowerSelection == true
 end
 
 local function openWillpowerUnitSelection()
 	pendingWillpowerSelectionRequestId += 1
 	local requestId = pendingWillpowerSelectionRequestId
+	local unitsFrame, unitsPath = getUnitsSelectionFrame()
+
+	debugWillpower(
+		"Opening unit selection request="
+		.. tostring(requestId)
+		.. " ready="
+		.. tostring(_G.UnitsUiReady)
+		.. " unitsFrame="
+		.. tostring(unitsPath)
+	)
+
 	_G.traitTowerSelection = true
 	_G.traitTowerSelectTower = function(_, tower)
 		if not tower then return false end
+		debugWillpower("Selected unit for Willpower: " .. tostring(tower.Name))
 		SelectedTower.Value = tower
 		clearWillpowerSelectionMode()
-		safeCloseAll(getWillpowerMenuTarget())
+		safeCloseAll(getWillpowerMenuTarget(), "UnitSelected")
 		return true
 	end
 	_G.traitTowerCancelSelection = clearWillpowerSelectionMode
 
 	if _G.UnitsUiReady == true then
-		safeCloseAll("Units")
+		if not safeCloseAll("Units", "UnitsReadyImmediate") then
+			showWillpowerMessage("Could not open Units. Check Output for [WillpowerUnits].", Color3.fromRGB(255, 90, 90))
+		end
 		return
 	end
 
+	showWillpowerMessage("Carregando Units...", Color3.fromRGB(255, 221, 80))
 	task.spawn(function()
-		if not waitForUnitsUiReady(requestId) then return end
-		safeCloseAll("Units")
+		if not waitForUnitsUiReady(requestId) then
+			local fallbackUnitsFrame, fallbackUnitsPath = getUnitsSelectionFrame()
+			openUnitsFrameDirectly(fallbackUnitsFrame, fallbackUnitsPath, getNewWillPowerFrame(), nil, "UnitsReadyTimeout")
+			return
+		end
+
+		if not safeCloseAll("Units", "UnitsReadyAfterWait") then
+			showWillpowerMessage("Could not open Units. Check Output for [WillpowerUnits].", Color3.fromRGB(255, 90, 90))
+		end
 	end)
 end
 
 local function requestWillpowerUnitSelection()
 	if os.clock() - lastWillpowerSelectionOpenAt < 0.15 then return end
 	lastWillpowerSelectionOpenAt = os.clock()
+	debugWillpower("Unit selection click received")
+	pcall(function()
+		UIHandlerModule.PlaySound("Open")
+	end)
 	openWillpowerUnitSelection()
 end
 
