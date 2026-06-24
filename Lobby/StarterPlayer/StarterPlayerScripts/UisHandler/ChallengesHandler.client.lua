@@ -35,6 +35,7 @@ local CurrencyCongratsLabel = PlayerGUI:WaitForChild("GameGui"):WaitForChild("PR
 
 local debounceFlags = {}
 local selectedItem = nil
+local rewardButtonsConnected = false
 
 -- Criando a tabela de botões dinamicamente com base no que existe no container
 local buttons = {
@@ -83,6 +84,11 @@ local function SetupViewPorts()
 		if itemFrame then
 			local placeholder = itemFrame:FindFirstChild("Placeholder")
 			if placeholder then
+				local existingViewport = placeholder:FindFirstChildWhichIsA("ViewportFrame")
+				if existingViewport then
+					continue
+				end
+
 				local icon = placeholder:FindFirstChild("Icon")
 				if icon then
 					icon.Image = "" -- Limpa a imagem antes de setar o viewport
@@ -107,6 +113,51 @@ local function UpdateCurrencyDisplay()
 	TextAmount.Text = "Republic Credits: x" .. tostring(creditsValue)
 end
 
+local function ConnectRewardButtons()
+	if rewardButtonsConnected then
+		return
+	end
+
+	rewardButtonsConnected = true
+
+	for itemName, button in pairs(buttons) do
+		if button then
+			debounceFlags[itemName] = false
+
+			button.Activated:Connect(function()
+				if debounceFlags[itemName] then return end
+				debounceFlags[itemName] = true
+
+				selectedItem = itemName
+				Prompt.Visible = true
+
+				task.wait(1)
+				debounceFlags[itemName] = false
+			end)
+		end
+	end
+end
+
+local function SetChallengeShopVisible(visible)
+	if visible then
+		UpdateCurrencyDisplay()
+		SetupViewPorts()
+		ConnectRewardButtons()
+
+		if _G.CloseAll then
+			_G.CloseAll("ChallengeShopFrame")
+		else
+			ChallengeShopGUI.Visible = true
+		end
+	else
+		if _G.CloseAll and ChallengeShopGUI.Visible then
+			_G.CloseAll()
+		else
+			ChallengeShopGUI.Visible = false
+		end
+	end
+end
+
 -- INIT
 Prompt.Vote_Skip.Contents.Options.Yes.Activated:Connect(function()
 	if selectedItem then
@@ -125,30 +176,12 @@ ChallengeShopGUI:GetPropertyChangedSignal("Visible"):Connect(function()
 	if ChallengeShopGUI.Visible then
 		UpdateCurrencyDisplay()
 		SetupViewPorts()
-
-		for itemName, button in pairs(buttons) do
-			if button then
-				if not debounceFlags[itemName] then
-					debounceFlags[itemName] = false
-				end
-
-				button.Activated:Connect(function()
-					if debounceFlags[itemName] then return end
-					debounceFlags[itemName] = true
-
-					selectedItem = itemName
-					Prompt.Visible = true
-
-					task.wait(1)
-					debounceFlags[itemName] = false
-				end)
-			end
-		end
+		ConnectRewardButtons()
 	end
 end)
 
 ChallengesEvents:WaitForChild("ChallengeShopLoading").Event:Connect(function(visible)
-
+	SetChallengeShopVisible(visible)
 end)
 
 ChallengePurchase.OnClientEvent:Connect(function(typeOf, name, quantity)
