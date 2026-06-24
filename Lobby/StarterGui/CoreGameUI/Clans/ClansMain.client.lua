@@ -80,11 +80,9 @@ task.spawn(function()
 	local function check()
 		-- Check if we are inside a clan
 		if CurrentClan.Value ~= 'None' then
-			print('We are in a clan')
 			CategorySwitcher.generateSideButtons({'Home', 'Members', 'Vault', 'Leaderboards', 'Quests'})
 			ClanDataLoading.LoadData(CurrentClan.Value) -- This will load clan data
 		else
-			print('We are not in a clan')
 			CategorySwitcher.generateSideButtons({'Info', 'Create', 'Join', 'Leaderboards'})
 		end
 	end

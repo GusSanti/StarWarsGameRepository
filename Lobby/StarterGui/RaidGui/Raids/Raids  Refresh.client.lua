@@ -6,10 +6,7 @@ local yes = prompt:WaitForChild("Vote_Skip"):WaitForChild("Contents"):WaitForChi
 local no = prompt:WaitForChild("Vote_Skip"):WaitForChild("Contents"):WaitForChild("Options"):WaitForChild("No")
 local debounce = false
 
-print('raid refresh!')
-
 RaidsRefresh.OnClientEvent:Connect(function()
-	warn('RAID EVENT EXECUTED')
 	prompt.Visible = true
 
 	yes.Activated:Connect(function()

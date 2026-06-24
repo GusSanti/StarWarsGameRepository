@@ -18,6 +18,7 @@ local playBtn = BottomBar.Play
 --BottomBar.Play.Lines.UIGradient.Color = script.Red.Color
 
 local gui = script.Parent
+local warnedMissingRaidElevators = false
 
 local function numbertotime(number)
 	local Hours = math.floor(number / 60 / 60)
@@ -40,8 +41,18 @@ local function numbertotime(number)
 end
 
 local function findPlayer()
-	for i, v in workspace.RaidElevators:GetChildren() do
-		if v.Players:FindFirstChild(game.Players.LocalPlayer.Name) then
+	local raidElevators = workspace:WaitForChild("RaidElevators", 10)
+	if not raidElevators then
+		if not warnedMissingRaidElevators then
+			warn("RaidElevators was not found in Workspace.")
+			warnedMissingRaidElevators = true
+		end
+		return nil
+	end
+
+	for i, v in raidElevators:GetChildren() do
+		local playersFolder = v:FindFirstChild("Players")
+		if playersFolder and playersFolder:FindFirstChild(player.Name) then
 			return v
 		end
 	end
@@ -83,6 +94,7 @@ playBtn.Activated:Connect(function()
 	gui.Visible = false
 	local elevator = findPlayer()
 	print(elevator)
+	if not elevator then return end
 	elevator.RaidElevatorServer.QuickStart:FireServer()
 end)
 
@@ -90,6 +102,7 @@ infiniteBtn.Activated:Connect(function()
 	--gui.Visible = false
 	local elevator = findPlayer()
 	print(elevator)
+	if not elevator then return end
 	
 	infiniteBtn.ActiveState.Value = not infiniteBtn.ActiveState.Value
 	
@@ -113,6 +126,7 @@ local Checkmark = BottomBar.Friends_Only.Contents.Check["Contents "].Checkmark
 BottomBar.Friends_Only.Activated:Connect(function()
 	Checkmark.Visible = not Checkmark.Visible
 	local elevator = findPlayer()
+	if not elevator then return end
 	elevator.RaidElevatorServer.FriendsOnly:FireServer(Checkmark.Visible)
 end)
 
