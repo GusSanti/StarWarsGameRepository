@@ -93,7 +93,6 @@ LocalInvitesFolder.ChildAdded:Connect(handleChild)
 for i,v in LocalInvitesFolder:GetChildren() do
 	handleChild(v)
 end
-print('[CLANSERVICE] PROCESSED INVITE LIB')
 
 
 return module

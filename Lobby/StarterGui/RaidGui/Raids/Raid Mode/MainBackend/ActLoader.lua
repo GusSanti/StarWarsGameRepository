@@ -11,6 +11,7 @@ local WorldsContainer = Left_Panel.Contents.Location.Bg
 local connections = {}
 
 local prevWorld = nil
+local warnedMissingRaidElevators = false
 -- 127, 3, 0 = red
 local function numbertotime(number)
 	local Hours = math.floor(number / 60 / 60)
@@ -116,8 +117,18 @@ end
 local prevAct = nil
 
 local function findPlayer()
-	for i, v in workspace.RaidElevators:GetChildren() do
-		if v.Players:FindFirstChild(game.Players.LocalPlayer.Name) then
+	local raidElevators = workspace:WaitForChild("RaidElevators", 10)
+	if not raidElevators then
+		if not warnedMissingRaidElevators then
+			warn("RaidElevators was not found in Workspace.")
+			warnedMissingRaidElevators = true
+		end
+		return nil
+	end
+
+	for i, v in raidElevators:GetChildren() do
+		local playersFolder = v:FindFirstChild("Players")
+		if playersFolder and playersFolder:FindFirstChild(Player.Name) then
 			return v
 		end
 	end
