@@ -10,45 +10,29 @@ local CreditsChanged = ChallengesEvents:WaitForChild("CheckCurrency")
 
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local ViewPortModule = require(Modules:WaitForChild("ViewPortModule"))
-local LoadingData = require(Modules:WaitForChild("LoadingRaidShopData"))
-
-local MessageEvent = Events:WaitForChild("Client"):WaitForChild("Message")
 
 -- VARIABLES
 local Player = Players.LocalPlayer
 local PlayerGUI = Player:WaitForChild("PlayerGui")
 
--- Novos Caminhos da UI
 local NewUI = PlayerGUI:WaitForChild("NewUI")
 local ChallengeShopGUI = NewUI:WaitForChild("ChallengeShopFrame")
 local Main = ChallengeShopGUI:WaitForChild("Main")
 local RewardsTab = Main:WaitForChild("RewardsTab")
 local TextAmount = RewardsTab:WaitForChild("TextAmount")
-
--- Caminho do container de recompensas
 local RewardsContainer = RewardsTab:WaitForChild("Rewards"):WaitForChild("Rewards")
 
--- UIs Externas
 local CoreGameUI = PlayerGUI:WaitForChild("CoreGameUI")
 local Prompt = CoreGameUI:WaitForChild("Prompt"):WaitForChild("Prompt")
 local CurrencyCongratsLabel = PlayerGUI:WaitForChild("GameGui"):WaitForChild("PRShop"):WaitForChild("Success")
 
+local ItemNameAliases = {
+	["Red Crystal"] = "Crystal (Red)",
+}
+
 local debounceFlags = {}
 local selectedItem = nil
 local rewardButtonsConnected = false
-
--- Criando a tabela de botões dinamicamente com base no que existe no container
-local buttons = {
-	["Crystal (Green)"] = RewardsContainer:FindFirstChild("Crystal (Green)"),
-	["Crystal (Blue)"] = RewardsContainer:FindFirstChild("Crystal (Blue)"),
-	["Red Crystal"] = RewardsContainer:FindFirstChild("Red Crystal"),
-	["Crystal (Pink)"] = RewardsContainer:FindFirstChild("Crystal (Pink)"),
-	["Crystal (Celestial)"] = RewardsContainer:FindFirstChild("Crystal (Celestial)"),
-	["Gems"] = RewardsContainer:FindFirstChild("Gems"),
-	["Sixth Brother"] = RewardsContainer:FindFirstChild("Sixth Brother"),
-	["TraitPoint"] = RewardsContainer:FindFirstChild("TraitPoint"),
-	["Crystal"] = RewardsContainer:FindFirstChild("Crystal"),
-}
 
 -- FUNCTIONS
 local function ShowSuccessMessage(typeOf, name, quantity)
@@ -67,49 +51,111 @@ local function ShowSuccessMessage(typeOf, name, quantity)
 	end
 end
 
-local function SetupViewPorts()
-	local viewDataNames = {
-		"Crystal (Pink)",
-		"Lucky Crystal",
-		"Crystal (Green)",
-		"Crystal (Blue)",
-		"Red Crystal",
-		"Crystal (Celestial)",
-		"Crystal",
-		"Sixth Brother"
-	}
+local function ResolveRewardItemName(rewardCard)
+	local configuredName = rewardCard:GetAttribute("ItemName")
+		or rewardCard:GetAttribute("ShopItemName")
+		or rewardCard:GetAttribute("ProductName")
+	local itemName = configuredName or rewardCard.Name
 
-	for _, itemName in pairs(viewDataNames) do
-		local itemFrame = RewardsContainer:FindFirstChild(itemName)
-		if itemFrame then
-			local placeholder = itemFrame:FindFirstChild("Placeholder")
-			if placeholder then
-				local existingViewport = placeholder:FindFirstChildWhichIsA("ViewportFrame")
-				if existingViewport then
-					continue
-				end
+	return ItemNameAliases[itemName] or itemName
+end
 
-				local icon = placeholder:FindFirstChild("Icon")
-				if icon then
-					icon.Image = "" -- Limpa a imagem antes de setar o viewport
-				end
+local function GetRewardCardButton(rewardCard)
+	if rewardCard:IsA("GuiButton") then
+		return rewardCard
+	end
 
-				local viewport = ViewPortModule.CreateViewPort(itemName)
-				-- Adicionada verificação de segurança para evitar erro de 'nil'
-				if viewport then
-					viewport.Parent = placeholder
-					viewport.Size = UDim2.new(1, 0, 1, 0)
-				else
-					warn("Modelo ViewPort não encontrado para: " .. itemName)
-				end
-			end
+	return rewardCard:FindFirstChildWhichIsA("GuiButton", true)
+end
+
+local function GetRewardCards()
+	local rewardCards = {}
+
+	for _, child in ipairs(RewardsContainer:GetChildren()) do
+		if not child:IsA("GuiObject") then
+			continue
 		end
+
+		local button = GetRewardCardButton(child)
+		if button then
+			local itemName = ResolveRewardItemName(child)
+			rewardCards[itemName] = {
+				Card = child,
+				Button = button,
+			}
+		end
+	end
+
+	return rewardCards
+end
+
+local function DestroyViewportInstance(viewport)
+	if not viewport then
+		return
+	end
+
+	if ViewPortModule.DestroyViewport then
+		ViewPortModule.DestroyViewport(viewport)
+	end
+
+	if viewport.Parent then
+		viewport:Destroy()
+	end
+end
+
+local function ApplyViewportLayout(viewport, referenceViewport)
+	if referenceViewport then
+		viewport.Name = referenceViewport.Name
+		viewport.AnchorPoint = referenceViewport.AnchorPoint
+		viewport.Position = referenceViewport.Position
+		viewport.Size = referenceViewport.Size
+		viewport.AutomaticSize = referenceViewport.AutomaticSize
+		viewport.LayoutOrder = referenceViewport.LayoutOrder
+		viewport.Rotation = referenceViewport.Rotation
+		viewport.ZIndex = referenceViewport.ZIndex
+		viewport.Visible = referenceViewport.Visible
+		viewport.ClipsDescendants = referenceViewport.ClipsDescendants
+		return
+	end
+
+	viewport.Name = "ViewportFrame"
+	viewport.AnchorPoint = Vector2.new(0.5, 0.5)
+	viewport.Position = UDim2.fromScale(0.5, 0.5)
+	viewport.Size = UDim2.fromScale(1, 1)
+end
+
+local function SetupViewPorts()
+	for itemName, rewardData in pairs(GetRewardCards()) do
+		local placeholder = rewardData.Card:FindFirstChild("Placeholder")
+		if not placeholder then
+			continue
+		end
+
+		local existingViewport = placeholder:FindFirstChildWhichIsA("ViewportFrame")
+		if existingViewport and existingViewport:GetAttribute("ChallengeShopItem") == itemName then
+			continue
+		end
+
+		local viewport = ViewPortModule.CreateViewPort(itemName)
+		if not viewport then
+			continue
+		end
+
+		local icon = placeholder:FindFirstChild("Icon")
+		if icon and (icon:IsA("ImageLabel") or icon:IsA("ImageButton")) then
+			icon.Image = ""
+		end
+
+		ApplyViewportLayout(viewport, existingViewport)
+		DestroyViewportInstance(existingViewport)
+
+		viewport:SetAttribute("ChallengeShopItem", itemName)
+		viewport.Parent = placeholder
 	end
 end
 
 local function UpdateCurrencyDisplay()
 	local creditsValue = CreditsChanged:InvokeServer(Player)
-	-- Atualizando com a formatação solicitada
 	TextAmount.Text = "Republic Credits: x" .. tostring(creditsValue)
 end
 
@@ -120,21 +166,22 @@ local function ConnectRewardButtons()
 
 	rewardButtonsConnected = true
 
-	for itemName, button in pairs(buttons) do
-		if button then
+	for itemName, rewardData in pairs(GetRewardCards()) do
+		local button = rewardData.Button
+		debounceFlags[itemName] = false
+
+		button.Activated:Connect(function()
+			if debounceFlags[itemName] then
+				return
+			end
+
+			debounceFlags[itemName] = true
+			selectedItem = itemName
+			Prompt.Visible = true
+
+			task.wait(1)
 			debounceFlags[itemName] = false
-
-			button.Activated:Connect(function()
-				if debounceFlags[itemName] then return end
-				debounceFlags[itemName] = true
-
-				selectedItem = itemName
-				Prompt.Visible = true
-
-				task.wait(1)
-				debounceFlags[itemName] = false
-			end)
-		end
+		end)
 	end
 end
 

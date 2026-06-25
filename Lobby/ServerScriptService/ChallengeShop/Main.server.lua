@@ -2,7 +2,6 @@ local Players = game:GetService('Players')
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local ChallengePurchase = ReplicatedStorage.Events.Challenges.ChallengePurchase
 local CreditsChanged = ReplicatedStorage.Events.Challenges.CheckCurrency
-local LoadingData = require(ReplicatedStorage.Modules.LoadingRaidShopData)
 local ShopSystem = require(ReplicatedStorage.ShopSystem)
 
 
@@ -24,6 +23,14 @@ local ShopItems = {
 	-- Raids Refresh
 }
 
+local ShopItemAliases = {
+	["Red Crystal"] = "Crystal (Red)",
+}
+
+local function ResolveShopItemName(itemName)
+	return ShopItemAliases[itemName] or itemName
+end
+
 
 CreditsChanged.OnServerInvoke = function (player)
 	local credits = player:FindFirstChild("RepublicCredits")
@@ -34,8 +41,8 @@ end
 
 
 ChallengePurchase.OnServerEvent:Connect(function(player, itemName)
-	warn(itemName)
-	local itemInfo = ShopItems[itemName]
+	local resolvedItemName = ResolveShopItemName(itemName)
+	local itemInfo = ShopItems[resolvedItemName]
 
 	
 	if not itemInfo then
@@ -48,10 +55,10 @@ ChallengePurchase.OnServerEvent:Connect(function(player, itemName)
 	local price = itemInfo.Price
 	local currency = itemInfo.Currency
 
-	print(player, itemName, quantity, price, itemType, currency)
+	print(player, resolvedItemName, quantity, price, itemType, currency)
 	local givenType, givenName, givenQuantity = ShopSystem.GiveItem(
 		player,
-		itemName,
+		resolvedItemName,
 		quantity,
 		price,
 		itemType,
